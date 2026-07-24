@@ -20,6 +20,7 @@ def reports_menu():
         print(languages.t("r7"))
         print(languages.t("r8"))
         print("9. Export Community Summary to File")
+        print("10. Export Project Summary to File")
         print(languages.t("r0"))
         choice = input(languages.t("enter_choice")).strip()
 
@@ -41,6 +42,8 @@ def reports_menu():
             attendance_by_village()
         elif choice == "9":
             export_community_summary()
+        elif choice == "10":
+            export_project_summary()
         elif choice == "0":
             running = False
         else:
@@ -304,6 +307,60 @@ def project_summary():
             )
     helpers.pause()
 
+def export_project_summary():
+    # writes the incomplete-projects list to a file, like project_summary() does on screen
+    helpers.print_line("EXPORT PROJECT SUMMARY")
+
+    rows = database.run_query(
+        """
+        SELECT status, COUNT(*) AS total,
+               ROUND(AVG(percent_complete), 1) AS avg_progress
+        FROM projects
+        GROUP BY status
+        ORDER BY status
+        """,
+        fetch="all"
+    )
+
+    incomplete = database.run_query(
+        """
+        SELECT project_name, status, percent_complete, expected_end_date
+        FROM projects
+        WHERE status IN ('Pending', 'Ongoing')
+        ORDER BY expected_end_date
+        """,
+        fetch="all"
+    )
+
+    from datetime import datetime
+    filename = "project_summary_" + datetime.now().strftime("%Y%m%d_%H%M%S") + ".txt"
+
+    with open(filename, "w") as f:
+        f.write("PROJECT SUMMARY\n")
+        f.write("Generated: " + datetime.now().strftime("%Y-%m-%d %H:%M") + "\n\n")
+
+        if rows == None or len(rows) == 0:
+            f.write("No projects.\n")
+        else:
+            for row in rows:
+                f.write(
+                    row["status"] + ": " + str(row["total"]) +
+                    " projects | avg progress: " + str(row["avg_progress"]) + "%\n"
+                )
+
+        f.write("\n--- Incomplete projects ---\n")
+        if incomplete == None or len(incomplete) == 0:
+            f.write("None\n")
+        else:
+            for row in incomplete:
+                f.write(
+                    row["project_name"] + " | " + row["status"] + " | " +
+                    str(row["percent_complete"]) + "% | due " +
+                    str(row["expected_end_date"]) + "\n"
+                )
+
+    print("Exported to", filename)
+    helpers.pause()
 
 def inventory_summary():
     # tool stock report
