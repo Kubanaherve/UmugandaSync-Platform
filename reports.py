@@ -6,6 +6,11 @@ import database
 import helpers
 import languages
 
+def safe_num(value):
+    # returns 0 instead of None so counts/sums never crash on empty tables
+    if value is None:
+        return 0
+    return value
 
 def reports_menu():
     running = True
@@ -79,16 +84,13 @@ def community_summary():
         fetch="one"
     )
 
-    print("Total members:", total_members["total"])
-    print("Active members:", active_members["total"])
-    print("Total projects:", total_projects["total"])
-    print("Ongoing projects:", ongoing["total"])
-    print("Tool types:", total_tools["total"])
-    if available_tools["total"] == None:
-        print("Available tool units: 0")
-    else:
-        print("Available tool units:", available_tools["total"])
-    print("Umuganda dates recorded:", attendance_days["total"])
+    print("Total members:", safe_num(total_members["total"]))
+    print("Active members:", safe_num(active_members["total"]))
+    print("Total projects:", safe_num(total_projects["total"]))
+    print("Ongoing projects:", safe_num(ongoing["total"]))
+    print("Tool types:", safe_num(total_tools["total"]))
+    print("Available tool units:", safe_num(available_tools["total"]))
+    print("Umuganda dates recorded:", safe_num(attendance_days["total"]))
     helpers.pause()
 
 def export_community_summary():
@@ -120,10 +122,6 @@ def export_community_summary():
         fetch="one"
     )
 
-    if available_tools["total"] == None:
-        available_units = 0
-    else:
-        available_units = available_tools["total"]
 
     from datetime import datetime
     filename = "community_summary_" + datetime.now().strftime("%Y%m%d_%H%M%S") + ".txt"
@@ -131,13 +129,13 @@ def export_community_summary():
     with open(filename, "w") as f:
         f.write("COMMUNITY SUMMARY\n")
         f.write("Generated: " + datetime.now().strftime("%Y-%m-%d %H:%M") + "\n\n")
-        f.write("Total members: " + str(total_members["total"]) + "\n")
-        f.write("Active members: " + str(active_members["total"]) + "\n")
-        f.write("Total projects: " + str(total_projects["total"]) + "\n")
-        f.write("Ongoing projects: " + str(ongoing["total"]) + "\n")
-        f.write("Tool types: " + str(total_tools["total"]) + "\n")
-        f.write("Available tool units: " + str(available_units) + "\n")
-        f.write("Umuganda dates recorded: " + str(attendance_days["total"]) + "\n")
+        f.write("Total members: " + str(safe_num(total_members["total"])) + "\n")
+        f.write("Active members: " + str(safe_num(active_members["total"])) + "\n")
+        f.write("Total projects: " + str(safe_num(total_projects["total"])) + "\n")
+        f.write("Ongoing projects: " + str(safe_num(ongoing["total"])) + "\n")
+        f.write("Tool types: " + str(safe_num(total_tools["total"])) + "\n")
+        f.write("Available tool units: " + str(safe_num(available_tools["total"])) + "\n")
+        f.write("Umuganda dates recorded: " + str(safe_num(attendance_days["total"])) + "\n")
 
     print("Exported to", filename)
     helpers.pause()
@@ -207,6 +205,8 @@ def attendance_summary():
     )
     if avg_row != None and avg_row["avg_present_pct"] != None:
         print("Overall present/late rate:", avg_row["avg_present_pct"], "%")
+    else:
+        print("Overall present/late rate: N/A (no attendance data yet)")
     helpers.pause()
 
 
