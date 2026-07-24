@@ -19,7 +19,7 @@ def reports_menu():
         print(languages.t("r6"))
         print(languages.t("r7"))
         print(languages.t("r8"))
-	print("9. Export Community Summary to File")
+        print("9. Export Community Summary to File")
         print(languages.t("r0"))
         choice = input(languages.t("enter_choice")).strip()
 
@@ -39,7 +39,7 @@ def reports_menu():
             inventory_summary()
         elif choice == "8":
             attendance_by_village()
-	elif choice == "9":
+        elif choice == "9":
             export_community_summary()
         elif choice == "0":
             running = False
@@ -86,6 +86,57 @@ def community_summary():
     else:
         print("Available tool units:", available_tools["total"])
     print("Umuganda dates recorded:", attendance_days["total"])
+    helpers.pause()
+
+def export_community_summary():
+    # writes the same numbers as community_summary(), but to a file
+    helpers.print_line("EXPORT COMMUNITY SUMMARY")
+
+    total_members = database.run_query(
+        "SELECT COUNT(*) AS total FROM members", fetch="one"
+    )
+    active_members = database.run_query(
+        "SELECT COUNT(*) AS total FROM members WHERE status='Active'",
+        fetch="one"
+    )
+    total_projects = database.run_query(
+        "SELECT COUNT(*) AS total FROM projects", fetch="one"
+    )
+    ongoing = database.run_query(
+        "SELECT COUNT(*) AS total FROM projects WHERE status='Ongoing'",
+        fetch="one"
+    )
+    total_tools = database.run_query(
+        "SELECT COUNT(*) AS total FROM tools", fetch="one"
+    )
+    available_tools = database.run_query(
+        "SELECT SUM(available_quantity) AS total FROM tools", fetch="one"
+    )
+    attendance_days = database.run_query(
+        "SELECT COUNT(DISTINCT attendance_date) AS total FROM attendance",
+        fetch="one"
+    )
+
+    if available_tools["total"] == None:
+        available_units = 0
+    else:
+        available_units = available_tools["total"]
+
+    from datetime import datetime
+    filename = "community_summary_" + datetime.now().strftime("%Y%m%d_%H%M%S") + ".txt"
+
+    with open(filename, "w") as f:
+        f.write("COMMUNITY SUMMARY\n")
+        f.write("Generated: " + datetime.now().strftime("%Y-%m-%d %H:%M") + "\n\n")
+        f.write("Total members: " + str(total_members["total"]) + "\n")
+        f.write("Active members: " + str(active_members["total"]) + "\n")
+        f.write("Total projects: " + str(total_projects["total"]) + "\n")
+        f.write("Ongoing projects: " + str(ongoing["total"]) + "\n")
+        f.write("Tool types: " + str(total_tools["total"]) + "\n")
+        f.write("Available tool units: " + str(available_units) + "\n")
+        f.write("Umuganda dates recorded: " + str(attendance_days["total"]) + "\n")
+
+    print("Exported to", filename)
     helpers.pause()
 
 
