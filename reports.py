@@ -56,6 +56,7 @@ def reports_menu():
         elif choice == "10":
             export_project_summary()
         elif choice == "0":
+            print("Returning to main menu...")
             running = False
         else:
             print("Invalid choice.")
