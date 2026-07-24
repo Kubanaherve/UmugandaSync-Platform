@@ -1,6 +1,12 @@
-# reports.py
-# Owner: Marvella
-# reports and stats for village leader
+"""
+reports.py
+Owner: Marvella
+reports and stats for village leader
+
+Generates community, member, attendance, project, and inventory reports
+for the village leader, plus file exports for select reports.
+
+"""
 
 import database
 import helpers
