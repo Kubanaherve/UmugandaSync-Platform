@@ -51,6 +51,7 @@ def get_tool_by_id(tool_id):
 
 
 def tools_menu():
+    """Show the tools menu loop and dispatch user choices to the right action."""
     running = True
     while running:
         helpers.print_line(languages.t("tools_menu"))
@@ -85,7 +86,7 @@ def tools_menu():
 
 
 def add_tool():
-    # add new tool to inventory
+    """Register a brand new tool in the inventory."""
     helpers.print_line("REGISTER TOOL")
     tool_name = helpers.get_non_empty("Tool name: ")
     category = helpers.get_non_empty("Category: ")
@@ -119,7 +120,7 @@ def add_tool():
 
 
 def view_tools():
-    # show all tools
+    """List every tool in the inventory, flagging any that are low on stock."""
     helpers.print_line("ALL TOOLS")
     rows = database.run_query(
         "SELECT * FROM tools ORDER BY tool_id",
@@ -134,6 +135,7 @@ def view_tools():
 
 
 def update_tool():
+    """Edit an existing tool's details, with basic consistency checks."""
     helpers.print_line("UPDATE TOOL")
     tool_id = helpers.get_positive_int("Tool ID: ")
     row = get_tool_by_id(tool_id)
@@ -178,7 +180,7 @@ def update_tool():
 
 
 def delete_tool():
-    # delete tool
+    """Remove a tool from the inventory after confirmation."""
     helpers.print_line("DELETE TOOL")
     tool_id = helpers.get_positive_int("Tool ID: ")
     row = get_tool_by_id(tool_id)
@@ -203,7 +205,7 @@ def delete_tool():
 
 
 def borrow_tool():
-    # borrow and reduce stock
+    """Borrow a tool for a member, reducing the available stock."""
     helpers.print_line("BORROW TOOL")
     tool_id = helpers.get_positive_int("Tool ID: ")
     tool = get_tool_by_id(tool_id)
@@ -265,7 +267,7 @@ def borrow_tool():
 
 
 def return_tool():
-    # return borrowed tool
+    """Mark a borrow record as returned and restore stock (capped at total)."""
     helpers.print_line("RETURN TOOL")
     borrow_id = helpers.get_positive_int("Borrow ID to return: ")
     borrow = database.run_query(
@@ -309,7 +311,7 @@ def return_tool():
 
 
 def low_stock_warning(show_pause=False):
-    # warn about low stock
+    """Print (and return) all tools whose available quantity is at/below limit."""
     helpers.print_line("LOW STOCK WARNING")
     rows = database.run_query(
         """
@@ -335,6 +337,7 @@ def low_stock_warning(show_pause=False):
 
 
 def view_borrow_history():
+    """Show every borrow record, most recent first, with member and tool info."""
     helpers.print_line("BORROW HISTORY")
     rows = database.run_query(
         """
@@ -362,7 +365,7 @@ def view_borrow_history():
 
 
 def count_low_stock_tools():
-    # count for dashboard
+    """Return the number of tools currently at/below their low stock limit."""
     row = database.run_query(
         """
         SELECT COUNT(*) AS total FROM tools
