@@ -125,7 +125,7 @@ def view_tools():
         "SELECT * FROM tools ORDER BY tool_id",
         fetch="all"
     )
-    if rows == None or len(rows) == 0:
+    if not rows:
         print("No tools found.")
     else:
         for row in rows:
@@ -170,7 +170,7 @@ def update_tool():
             condition_status, low_stock_limit, tool_id
         )
     )
-    if result != None:
+    if result is not None:
         print("Tool updated.")
     else:
         print("Update failed.")
@@ -182,18 +182,18 @@ def delete_tool():
     helpers.print_line("DELETE TOOL")
     tool_id = helpers.get_positive_int("Tool ID: ")
     row = get_tool_by_id(tool_id)
-    if row == None:
+    if row is None:
         print("Tool not found.")
         helpers.pause()
         return
 
     print("Delete tool:", row["tool_name"])
-    if helpers.confirm("Are you sure") == True:
+    if helpers.confirm("Are you sure") is True:
         result = database.run_query(
             "DELETE FROM tools WHERE tool_id = %s",
             (tool_id,)
         )
-        if result != None:
+        if result is not None:
             print("Tool deleted.")
         else:
             print("Could not delete. There may be borrow history linked.")
@@ -207,7 +207,7 @@ def borrow_tool():
     helpers.print_line("BORROW TOOL")
     tool_id = helpers.get_positive_int("Tool ID: ")
     tool = get_tool_by_id(tool_id)
-    if tool == None:
+    if tool is None:
         print("Tool not found.")
         helpers.pause()
         return
@@ -223,7 +223,7 @@ def borrow_tool():
         return
 
     member_id = helpers.get_positive_int("Member ID borrowing: ")
-    if members.member_exists(member_id) == False:
+    if not members.member_exists(member_id):
         print("Member not found.")
         helpers.pause()
         return
@@ -249,7 +249,7 @@ def borrow_tool():
         """,
         (tool_id, member_id, quantity, borrow_date)
     )
-    if borrow_id == None:
+    if borrow_id is None:
         print("Failed to create borrow record.")
         helpers.pause()
         return
@@ -278,7 +278,7 @@ def return_tool():
         (borrow_id,),
         fetch="one"
     )
-    if borrow == None:
+    if borrow is None:
         print("Borrow record not found.")
         helpers.pause()
         return
@@ -319,7 +319,7 @@ def low_stock_warning(show_pause=False):
         """,
         fetch="all"
     )
-    if rows == None or len(rows) == 0:
+    if not rows:
         print("No low stock tools. Good job!")
     else:
         print("WARNING:", len(rows), "tool(s) are low on stock:")
@@ -329,7 +329,7 @@ def low_stock_warning(show_pause=False):
                 "available:", row["available_quantity"],
                 "(limit:", str(row["low_stock_limit"]) + ")"
             )
-    if show_pause == True:
+    if show_pause:
         helpers.pause()
     return rows
 
@@ -370,6 +370,6 @@ def count_low_stock_tools():
         """,
         fetch="one"
     )
-    if row == None:
+    if row is None:
         return 0
     return row["total"]
