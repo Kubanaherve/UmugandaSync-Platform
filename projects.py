@@ -640,6 +640,32 @@ def complete_project(project_id: int) -> dict[str, Any]:
     return require_project(project_id)
 
 
+def cancel_project(project_id: int) -> dict[str, Any]:
+    """
+    Cancel a project without deleting its history.
+
+    Returns
+    -------
+    dict
+        Updated project with status Cancelled.
+
+    Raises
+    ------
+    ProjectNotFoundError
+        If the project does not exist.
+    ProjectValidationError
+        If the project is already completed.
+    """
+    project = require_project(project_id)
+    if project["status"] == "Completed":
+        raise ProjectValidationError(
+            "Completed projects cannot be cancelled; edit status instead."
+        )
+    update_project_fields(project_id, {"status": "Cancelled"})
+    logger.info("Project %s cancelled", project_id)
+    return require_project(project_id)
+
+
 def create_project_record(
     *,
     project_name: str,
@@ -1142,6 +1168,34 @@ def delete_project() -> None:
     helpers.pause()
 
 
+def cancel_project_flow() -> None:
+    """Interactive: cancel a project while keeping its record."""
+    helpers.print_line(
+        languages.t("cancel_project_title", fallback="CANCEL PROJECT")
+    )
+    try:
+        project_id = helpers.get_positive_int(languages.t("project_id_prompt"))
+        project = require_project(project_id)
+        print(
+            languages.t("confirm_cancel", fallback="Cancel project")
+            + ":",
+            project["project_name"],
+            f"({project['status']})",
+        )
+        if helpers.confirm(languages.t("are_you_sure")):
+            cancel_project(project_id)
+            helpers.success(
+                languages.t("project_cancelled", fallback="Project cancelled.")
+            )
+    except ProjectNotFoundError:
+        helpers.error(languages.t("project_not_found"))
+    except ProjectValidationError as exc:
+        helpers.error(str(exc))
+    except ProjectDataError as exc:
+        helpers.error(str(exc))
+    helpers.pause()
+
+
 def project_reports_menu() -> None:
     """Interactive: show project reports and optional alert summary."""
     show_project_report()
@@ -1168,6 +1222,7 @@ def project_menu() -> None:
     10 Edit project
     11 Deadline monitoring
     12 Reports & overdue alerts
+    13 Cancel project
     0 Back
     """
     running = True
@@ -1190,6 +1245,10 @@ def project_menu() -> None:
         print(
             "12. "
             + languages.t("project_report_title", fallback="Project reports & alerts")
+        )
+        print(
+            "13. "
+            + languages.t("cancel_project_title", fallback="Cancel project")
         )
         print(languages.t("p0"))
         choice = input(languages.t("enter_choice")).strip()
@@ -1219,6 +1278,8 @@ def project_menu() -> None:
             helpers.pause()
         elif choice == "12":
             project_reports_menu()
+        elif choice == "13":
+            cancel_project_flow()
         elif choice == "0":
             running = False
         else:
@@ -1284,6 +1345,9 @@ __all__ = [
     "edit_project_record",
     "apply_progress",
     "complete_project",
+    "cancel_project",
+    "cancel_project_flow",
+    "progress_bar",
     "ProjectError",
     "ProjectValidationError",
     "ProjectNotFoundError",
