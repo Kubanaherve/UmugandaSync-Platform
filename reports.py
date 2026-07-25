@@ -1,11 +1,22 @@
-# reports.py
-# Owner: Marvella
-# reports and stats for village leader
+"""
+reports.py
+Owner: Marvella
+reports and stats for village leader
+
+Generates community, member, attendance, project, and inventory reports
+for the village leader, plus file exports for select reports.
+
+"""
 
 import database
 import helpers
 import languages
 
+def safe_num(value):
+    # returns 0 instead of None so counts/sums never crash on empty tables
+    if value is None:
+        return 0
+    return value
 
 def reports_menu():
     running = True
@@ -19,7 +30,8 @@ def reports_menu():
         print(languages.t("r6"))
         print(languages.t("r7"))
         print(languages.t("r8"))
-	print("9. Export Community Summary to File")
+        print("9. Export Community Summary to File")
+        print("10. Export Project Summary to File")
         print(languages.t("r0"))
         choice = input(languages.t("enter_choice")).strip()
 
@@ -39,9 +51,12 @@ def reports_menu():
             inventory_summary()
         elif choice == "8":
             attendance_by_village()
-	elif choice == "9":
+        elif choice == "9":
             export_community_summary()
+        elif choice == "10":
+            export_project_summary()
         elif choice == "0":
+            print("Returning to main menu...")
             running = False
         else:
             print("Invalid choice.")
@@ -76,16 +91,60 @@ def community_summary():
         fetch="one"
     )
 
-    print("Total members:", total_members["total"])
-    print("Active members:", active_members["total"])
-    print("Total projects:", total_projects["total"])
-    print("Ongoing projects:", ongoing["total"])
-    print("Tool types:", total_tools["total"])
-    if available_tools["total"] == None:
-        print("Available tool units: 0")
-    else:
-        print("Available tool units:", available_tools["total"])
-    print("Umuganda dates recorded:", attendance_days["total"])
+    print("Total members:", safe_num(total_members["total"]))
+    print("Active members:", safe_num(active_members["total"]))
+    print("Total projects:", safe_num(total_projects["total"]))
+    print("Ongoing projects:", safe_num(ongoing["total"]))
+    print("Tool types:", safe_num(total_tools["total"]))
+    print("Available tool units:", safe_num(available_tools["total"]))
+    print("Umuganda dates recorded:", safe_num(attendance_days["total"]))
+    helpers.pause()
+
+def export_community_summary():
+    # writes the same numbers as community_summary(), but to a file
+    helpers.print_line("EXPORT COMMUNITY SUMMARY")
+
+    total_members = database.run_query(
+        "SELECT COUNT(*) AS total FROM members", fetch="one"
+    )
+    active_members = database.run_query(
+        "SELECT COUNT(*) AS total FROM members WHERE status='Active'",
+        fetch="one"
+    )
+    total_projects = database.run_query(
+        "SELECT COUNT(*) AS total FROM projects", fetch="one"
+    )
+    ongoing = database.run_query(
+        "SELECT COUNT(*) AS total FROM projects WHERE status='Ongoing'",
+        fetch="one"
+    )
+    total_tools = database.run_query(
+        "SELECT COUNT(*) AS total FROM tools", fetch="one"
+    )
+    available_tools = database.run_query(
+        "SELECT SUM(available_quantity) AS total FROM tools", fetch="one"
+    )
+    attendance_days = database.run_query(
+        "SELECT COUNT(DISTINCT attendance_date) AS total FROM attendance",
+        fetch="one"
+    )
+
+
+    from datetime import datetime
+    filename = "community_summary_" + datetime.now().strftime("%Y%m%d_%H%M%S") + ".txt"
+
+    with open(filename, "w") as f:
+        f.write("COMMUNITY SUMMARY\n")
+        f.write("Generated: " + datetime.now().strftime("%Y-%m-%d %H:%M") + "\n\n")
+        f.write("Total members: " + str(safe_num(total_members["total"])) + "\n")
+        f.write("Active members: " + str(safe_num(active_members["total"])) + "\n")
+        f.write("Total projects: " + str(safe_num(total_projects["total"])) + "\n")
+        f.write("Ongoing projects: " + str(safe_num(ongoing["total"])) + "\n")
+        f.write("Tool types: " + str(safe_num(total_tools["total"])) + "\n")
+        f.write("Available tool units: " + str(safe_num(available_tools["total"])) + "\n")
+        f.write("Umuganda dates recorded: " + str(safe_num(attendance_days["total"])) + "\n")
+
+    print("Exported to", filename)
     helpers.pause()
 
 
@@ -153,6 +212,8 @@ def attendance_summary():
     )
     if avg_row != None and avg_row["avg_present_pct"] != None:
         print("Overall present/late rate:", avg_row["avg_present_pct"], "%")
+    else:
+        print("Overall present/late rate: N/A (no attendance data yet)")
     helpers.pause()
 
 
@@ -253,6 +314,60 @@ def project_summary():
             )
     helpers.pause()
 
+def export_project_summary():
+    # writes the incomplete-projects list to a file, like project_summary() does on screen
+    helpers.print_line("EXPORT PROJECT SUMMARY")
+
+    rows = database.run_query(
+        """
+        SELECT status, COUNT(*) AS total,
+               ROUND(AVG(percent_complete), 1) AS avg_progress
+        FROM projects
+        GROUP BY status
+        ORDER BY status
+        """,
+        fetch="all"
+    )
+
+    incomplete = database.run_query(
+        """
+        SELECT project_name, status, percent_complete, expected_end_date
+        FROM projects
+        WHERE status IN ('Pending', 'Ongoing')
+        ORDER BY expected_end_date
+        """,
+        fetch="all"
+    )
+
+    from datetime import datetime
+    filename = "project_summary_" + datetime.now().strftime("%Y%m%d_%H%M%S") + ".txt"
+
+    with open(filename, "w") as f:
+        f.write("PROJECT SUMMARY\n")
+        f.write("Generated: " + datetime.now().strftime("%Y-%m-%d %H:%M") + "\n\n")
+
+        if rows == None or len(rows) == 0:
+            f.write("No projects.\n")
+        else:
+            for row in rows:
+                f.write(
+                    row["status"] + ": " + str(row["total"]) +
+                    " projects | avg progress: " + str(row["avg_progress"]) + "%\n"
+                )
+
+        f.write("\n--- Incomplete projects ---\n")
+        if incomplete == None or len(incomplete) == 0:
+            f.write("None\n")
+        else:
+            for row in incomplete:
+                f.write(
+                    row["project_name"] + " | " + row["status"] + " | " +
+                    str(row["percent_complete"]) + "% | due " +
+                    str(row["expected_end_date"]) + "\n"
+                )
+
+    print("Exported to", filename)
+    helpers.pause()
 
 def inventory_summary():
     # tool stock report
