@@ -957,3 +957,29 @@ def reports_menu() -> None:
             running = False
         else:
             helpers.error(languages.t("invalid_choice", fallback="Invalid choice."))
+
+
+__all__ = [
+    "reports_menu",
+    "community_summary",
+    "member_report",
+    "attendance_summary",
+    "most_active_members",
+    "poor_attendance_members",
+    "project_summary",
+    "inventory_summary",
+    "attendance_by_village",
+    "kpi_snapshot_report",
+    "export_community_summary",
+    "export_project_summary",
+    "export_attendance_summary",
+    "export_community_summary_csv",
+    "make_export_filename",
+    "build_community_metrics",
+    "build_kpi_snapshot",
+    "safe_num",
+    "safe_row",
+    "ReportError",
+    "ReportQueryError",
+    "ReportExportError",
+]
