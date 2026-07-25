@@ -248,3 +248,81 @@ def derive_status_from_progress(current_status: str, percent: int) -> str:
     if percent > 0 and current_status == "Pending":
         return "Ongoing"
     return current_status
+
+
+# ---------------------------------------------------------------------------
+# Data access layer (repository)
+# ---------------------------------------------------------------------------
+def _query(
+    sql: str,
+    params: tuple = (),
+    fetch: Optional[str] = None,
+) -> Any:
+    """
+    Run a parameterized query via database.run_query.
+
+    Returns
+    -------
+    Any
+        Row, list of rows, lastrowid, or None.
+
+    Raises
+    ------
+    ProjectDataError
+        When the database layer returns None for a write that must succeed,
+        or when an unexpected exception occurs.
+    """
+    try:
+        return database.run_query(sql, params, fetch=fetch)
+    except Exception as exc:  # pragma: no cover - driver-specific
+        logger.exception("Project query failed")
+        raise ProjectDataError(f"Database query failed: {exc}") from exc
+
+
+def member_exists(member_id: int) -> bool:
+    """Return True if member_id exists in members."""
+    row = _query(
+        "SELECT member_id FROM members WHERE member_id = %s",
+        (member_id,),
+        fetch="one",
+    )
+    return row is not None
+
+
+def get_project_by_id(project_id: int) -> Optional[dict[str, Any]]:
+    """
+    Fetch one project with leader name fields.
+
+    Parameters
+    ----------
+    project_id:
+        Primary key.
+
+    Returns
+    -------
+    dict | None
+    """
+    return _query(
+        """
+        SELECT p.*, m.first_name, m.last_name
+        FROM projects p
+        LEFT JOIN members m ON p.leader_member_id = m.member_id
+        WHERE p.project_id = %s
+        """,
+        (project_id,),
+        fetch="one",
+    )
+
+
+def require_project(project_id: int) -> dict[str, Any]:
+    """
+    Fetch a project or raise ProjectNotFoundError.
+
+    Raises
+    ------
+    ProjectNotFoundError
+    """
+    project = get_project_by_id(project_id)
+    if project is None:
+        raise ProjectNotFoundError(f"Project {project_id} not found.")
+    return project
