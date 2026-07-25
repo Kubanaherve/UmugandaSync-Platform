@@ -97,3 +97,40 @@ def validate_national_id(national_id):
         )
     return cleaned
 
+
+def validate_phone(phone):
+    """
+    Validate a Rwandan phone number.
+
+    Accepts formats: 07XXXXXXXX, +2507XXXXXXXX, 2507XXXXXXXX.
+    Returns the cleaned phone number on success.
+    Raises ValidationError on failure.
+    """
+    if phone is None:
+        raise ValidationError("Phone number is required.")
+
+    cleaned = phone.strip().replace(" ", "").replace("-", "")
+    if not PHONE_PATTERN.match(cleaned):
+        raise ValidationError(
+            "Invalid phone number. Expected formats: 07XXXXXXXX or "
+            "+2507XXXXXXXX."
+        )
+    return cleaned
+
+
+def validate_email(email):
+    """
+    Validate an email address.
+
+    Email is optional: None or "" returns None.
+    Raises ValidationError if a non-empty value does not look like
+    a valid email address.
+    """
+    if email is None or email.strip() == "":
+        return None
+
+    cleaned = email.strip()
+    if not EMAIL_PATTERN.match(cleaned):
+        raise ValidationError("Invalid email address format.")
+    return cleaned
+
