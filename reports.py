@@ -245,3 +245,31 @@ def build_member_breakdown() -> dict[str, list[dict[str, Any]]]:
         fetch="all",
     ) or []
     return {"by_status": by_status, "by_village": by_village}
+
+
+def build_attendance_summary() -> dict[str, Any]:
+    """Return attendance status counts and overall present/late rate."""
+    rows = _query(
+        """
+        SELECT status, COUNT(*) AS total
+        FROM attendance
+        GROUP BY status
+        ORDER BY total DESC
+        """,
+        fetch="all",
+    ) or []
+    avg_row = _query(
+        """
+        SELECT
+          ROUND(
+            100 * SUM(CASE WHEN status IN ('Present','Late') THEN 1 ELSE 0 END)
+            / NULLIF(COUNT(*), 0), 1
+          ) AS avg_present_pct
+        FROM attendance
+        """,
+        fetch="one",
+    )
+    return {
+        "by_status": rows,
+        "avg_present_pct": None if avg_row is None else avg_row.get("avg_present_pct"),
+    }
