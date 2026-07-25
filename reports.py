@@ -273,3 +273,43 @@ def build_attendance_summary() -> dict[str, Any]:
         "by_status": rows,
         "avg_present_pct": None if avg_row is None else avg_row.get("avg_present_pct"),
     }
+
+
+def build_most_active_members(limit: int = 10) -> list[dict[str, Any]]:
+    """Top members by Present/Late attendance count."""
+    if limit < 1:
+        limit = 10
+    return _query(
+        """
+        SELECT m.member_id, m.first_name, m.last_name, m.village,
+               COUNT(*) AS active_count
+        FROM attendance a
+        JOIN members m ON a.member_id = m.member_id
+        WHERE a.status IN ('Present', 'Late')
+        GROUP BY m.member_id, m.first_name, m.last_name, m.village
+        ORDER BY active_count DESC
+        LIMIT %s
+        """,
+        (limit,),
+        fetch="all",
+    ) or []
+
+
+def build_poor_attendance(min_absents: int = 2) -> list[dict[str, Any]]:
+    """Members with at least ``min_absents`` Absent records."""
+    if min_absents < 1:
+        min_absents = 2
+    return _query(
+        """
+        SELECT m.member_id, m.first_name, m.last_name, m.phone,
+               COUNT(*) AS absent_count
+        FROM attendance a
+        JOIN members m ON a.member_id = m.member_id
+        WHERE a.status = 'Absent'
+        GROUP BY m.member_id, m.first_name, m.last_name, m.phone
+        HAVING COUNT(*) >= %s
+        ORDER BY absent_count DESC
+        """,
+        (min_absents,),
+        fetch="all",
+    ) or []
