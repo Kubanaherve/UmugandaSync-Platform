@@ -1084,3 +1084,37 @@ def update_project_progress() -> None:
     except ProjectDataError as exc:
         helpers.error(languages.t("project_update_failed") + f" ({exc})")
     helpers.pause()
+
+
+def mark_project_completed() -> None:
+    """Interactive: mark a project as completed."""
+    helpers.print_line(languages.t("p8"))
+    try:
+        project_id = helpers.get_positive_int(languages.t("project_id_prompt"))
+        project = require_project(project_id)
+        print(languages.t("mark_complete") + ":", project["project_name"])
+        if helpers.confirm(languages.t("are_you_sure")):
+            complete_project(project_id)
+            helpers.success(languages.t("project_completed"))
+    except ProjectNotFoundError:
+        helpers.error(languages.t("project_not_found"))
+    except ProjectDataError:
+        helpers.error(languages.t("project_complete_failed"))
+    helpers.pause()
+
+
+def delete_project() -> None:
+    """Interactive: delete a project after confirmation."""
+    helpers.print_line(languages.t("p9"))
+    try:
+        project_id = helpers.get_positive_int(languages.t("project_id_prompt"))
+        project = require_project(project_id)
+        print(languages.t("confirm_delete") + ":", project["project_name"])
+        if helpers.confirm(languages.t("are_you_sure")):
+            delete_project_by_id(project_id)
+            helpers.success(languages.t("project_deleted"))
+    except ProjectNotFoundError:
+        helpers.error(languages.t("project_not_found"))
+    except ProjectDataError:
+        helpers.error(languages.t("project_delete_failed"))
+    helpers.pause()
