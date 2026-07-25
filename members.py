@@ -47,3 +47,22 @@ if not logger.handlers:
     logger.addHandler(_handler)
     logger.setLevel(logging.INFO)
 
+
+# --------------------------------------------------------------------------
+# Exceptions
+# --------------------------------------------------------------------------
+class MemberError(Exception):
+    """Base exception for all member-related errors."""
+
+
+class ValidationError(MemberError):
+    """Raised when member input data fails validation rules."""
+
+
+class DuplicateMemberError(MemberError):
+    """Raised when a member with the same phone or national ID exists."""
+
+
+class MemberNotFoundError(MemberError):
+    """Raised when a requested member_id does not exist."""
+
