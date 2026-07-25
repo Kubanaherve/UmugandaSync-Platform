@@ -685,3 +685,69 @@ def create_project_record(
     )
     logger.info("Created project %s (%s)", new_id, name)
     return new_id
+
+
+def edit_project_record(
+    project_id: int,
+    *,
+    project_name: Optional[str] = None,
+    description: Optional[str] = None,
+    location: Optional[str] = None,
+    leader_member_id: Optional[int] = None,
+    start_date: Optional[str] = None,
+    expected_end_date: Optional[str] = None,
+    status: Optional[str] = None,
+) -> dict[str, Any]:
+    """
+    Edit mutable project fields (partial update).
+
+    Only provided (not None) fields are changed, except description which
+    may be cleared with an empty string.
+
+    Returns
+    -------
+    dict
+        Updated project.
+    """
+    project = require_project(project_id)
+    fields: dict[str, Any] = {}
+
+    if project_name is not None:
+        fields["project_name"] = validate_project_name(project_name)
+    if description is not None:
+        fields["description"] = validate_description(description)
+    if location is not None:
+        fields["location"] = validate_location(location)
+    if leader_member_id is not None:
+        leader = validate_leader_id(leader_member_id)
+        if not member_exists(leader):
+            raise ProjectValidationError("Leader member was not found.")
+        fields["leader_member_id"] = leader
+    if status is not None:
+        fields["status"] = validate_status(status)
+
+    new_start = (
+        validate_date_string(start_date, field_name="Start date")
+        if start_date is not None
+        else str(project["start_date"])
+    )
+    new_end = (
+        validate_date_string(expected_end_date, field_name="Expected end date")
+        if expected_end_date is not None
+        else str(project["expected_end_date"])
+    )
+    if start_date is not None:
+        fields["start_date"] = new_start
+    if expected_end_date is not None:
+        fields["expected_end_date"] = new_end
+    validate_date_range(
+        fields.get("start_date", new_start),
+        fields.get("expected_end_date", new_end),
+    )
+
+    if not fields:
+        raise ProjectValidationError("No changes provided.")
+
+    update_project_fields(project_id, fields)
+    logger.info("Edited project %s fields=%s", project_id, list(fields))
+    return require_project(project_id)
