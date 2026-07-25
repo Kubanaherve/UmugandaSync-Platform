@@ -1009,3 +1009,78 @@ def edit_project() -> None:
     except ProjectDataError as exc:
         helpers.error(languages.t("project_update_failed") + f" ({exc})")
     helpers.pause()
+
+
+def view_all_projects() -> None:
+    """Interactive: list every project."""
+    helpers.print_line(languages.t("p2"))
+    _display_projects(fetch_all_projects())
+    helpers.pause()
+
+
+def view_projects_by_status(status: str) -> None:
+    """Interactive: list projects filtered by status."""
+    label = {"Ongoing": languages.t("p3"), "Completed": languages.t("p4")}
+    helpers.print_line(label.get(status, status))
+    try:
+        _display_projects(fetch_projects_by_status(status))
+    except ProjectValidationError as exc:
+        helpers.error(str(exc))
+    helpers.pause()
+
+
+def view_overdue_projects() -> None:
+    """Interactive: list overdue projects (deadline monitoring entry)."""
+    helpers.print_line(languages.t("p5"))
+    _display_projects(fetch_overdue_projects())
+    helpers.pause()
+
+
+def search_projects() -> None:
+    """Interactive: search projects by name or location."""
+    helpers.print_line(languages.t("p6"))
+    try:
+        term = helpers.get_non_empty(languages.t("search_term_prompt"))
+        _display_projects(search_projects_data(term))
+    except ProjectValidationError as exc:
+        helpers.error(str(exc))
+    helpers.pause()
+
+
+def update_project_progress() -> None:
+    """Interactive: update percent complete / progress tracking."""
+    helpers.print_line(languages.t("p7"))
+    try:
+        project_id = helpers.get_positive_int(languages.t("project_id_prompt"))
+        project = require_project(project_id)
+
+        print(languages.t("current_values") + ":")
+        print(
+            "  ",
+            project["project_name"],
+            "|",
+            project["status"],
+            "|",
+            str(project["percent_complete"]) + "%",
+            "|",
+            languages.t("due"),
+            project["expected_end_date"],
+            "|",
+            deadline_label(project),
+        )
+
+        percent = helpers.get_int_in_range(
+            languages.t("progress_prompt") + " (0-100): ", 0, 100
+        )
+        updated = apply_progress(project_id, percent)
+        helpers.success(
+            languages.t("project_updated")
+            + f" → {updated['percent_complete']}% ({updated['status']})"
+        )
+    except ProjectNotFoundError:
+        helpers.error(languages.t("project_not_found"))
+    except ProjectValidationError as exc:
+        helpers.error(str(exc))
+    except ProjectDataError as exc:
+        helpers.error(languages.t("project_update_failed") + f" ({exc})")
+    helpers.pause()
