@@ -1,10 +1,12 @@
-# menu.py
-# prints menus only — routing stays in main.py
+import logging
+from typing import Optional
 
 import languages
 
+logger = logging.getLogger(__name__)
 
-def show_login_header():
+
+def show_login_header() -> None:
     print()
     print("=" * 56)
     print(languages.t("app_title"))
@@ -13,27 +15,34 @@ def show_login_header():
     print()
 
 
-def show_main_menu():
-    print()
-    print("-" * 44)
-    print(languages.t("main_menu"))
-    print("-" * 44)
-    print(languages.t("menu_members"))
-    print(languages.t("menu_attendance"))
-    print(languages.t("menu_projects"))
-    print(languages.t("menu_tools"))
-    print(languages.t("menu_reports"))
-    print(languages.t("menu_search"))
-    print(languages.t("menu_refresh"))
-    print(languages.t("menu_language"))
-    print(languages.t("menu_logout"))
-    print(languages.t("menu_exit"))
-    print("-" * 44)
+def show_main_menu() -> None:
+    items = [
+        ("menu_members",),
+        ("menu_attendance",),
+        ("menu_projects",),
+        ("menu_tools",),
+        ("menu_reports",),
+        ("menu_search",),
+        ("menu_refresh",),
+        ("menu_language",),
+        ("menu_logout",),
+        ("menu_exit",),
+    ]
+    build_menu(languages.t("main_menu"), items)
 
 
-def get_choice(prompt_text=None):
-    if prompt_text == None:
+def get_choice(prompt_text: Optional[str] = None) -> str:
+    if prompt_text is None:
         prompt_text = languages.t("enter_choice")
-    choice = input(prompt_text)
-    return choice.strip()
+    return input(prompt_text).strip()
 
+
+def build_menu(title: str, items: list[tuple], width: int = 44) -> None:
+    print()
+    print("-" * width)
+    print(title)
+    print("-" * width)
+    for item in items:
+        print(languages.t(item[0]))
+    print("-" * width)
+    logger.debug(f"Rendered menu: {title}")
