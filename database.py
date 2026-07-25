@@ -52,6 +52,7 @@ def _get_pool() -> Optional[MySQLConnectionPool]:
 
 
 def connect_db() -> Optional[mysql.connector.MySQLConnection]:
+    """Get a database connection from the pool, falling back to direct connect."""
     pool = _get_pool()
     if pool is not None:
         try:
@@ -86,6 +87,7 @@ def connect_db() -> Optional[mysql.connector.MySQLConnection]:
 
 
 def close_db(connection: Any, cursor: Any = None) -> None:
+    """Safely close a cursor and connection, returning pool connections."""
     try:
         if cursor is not None:
             cursor.close()
@@ -100,6 +102,20 @@ def close_db(connection: Any, cursor: Any = None) -> None:
 def run_query(
     sql: str, values: Optional[tuple] = None, fetch: Optional[str] = None
 ) -> Any:
+    """
+    Execute a SQL query with optional parameter binding.
+    
+    Args:
+        sql: SQL statement with %s placeholders
+        values: Tuple of parameter values
+        fetch: \"one\" for single row dict, \"all\" for list of dicts, None for INSERT/UPDATE/DELETE
+        
+    Returns:
+        For SELECT: dict (fetch=\"one\") or list of dicts (fetch=\"all\")
+        For INSERT: lastrowid (int)
+        For UPDATE/DELETE: affected row count
+        None on connection or SQL error
+    """
     connection = connect_db()
     if connection is None:
         return None
@@ -137,6 +153,7 @@ def run_query(
 
 
 def test_connection() -> bool:
+    """Quick health check — returns True if database is reachable."""
     connection = connect_db()
     if connection is None:
         print("FAILED: could not connect.")
@@ -148,6 +165,16 @@ def test_connection() -> bool:
 
 @contextmanager
 def transaction() -> Iterator[Any]:
+    """
+    Context manager for atomic transactions.
+    
+    Commits on success, rolls back on exception.
+    
+    Usage:
+        with database.transaction() as cursor:
+            cursor.execute(\"INSERT INTO ...\")
+            cursor.execute(\"UPDATE ...\")
+    """
     connection = connect_db()
     if connection is None:
         yield None
@@ -170,6 +197,7 @@ def transaction() -> Iterator[Any]:
 
 
 def execute_many(sql: str, values_list: list[tuple]) -> Optional[int]:
+    """Execute a batch INSERT/UPDATE with multiple value tuples. Returns affected row count."""
     connection = connect_db()
     if connection is None:
         return None
@@ -194,6 +222,7 @@ def execute_many(sql: str, values_list: list[tuple]) -> Optional[int]:
 
 
 def insert_one(table: str, data: dict[str, Any]) -> Optional[int]:
+    """Insert one row. Returns new record ID (lastrowid)."""
     columns = ", ".join(data.keys())
     placeholders = ", ".join(["%s"] * len(data))
     sql = f"INSERT INTO {table} ({columns}) VALUES ({placeholders})"
@@ -203,6 +232,7 @@ def insert_one(table: str, data: dict[str, Any]) -> Optional[int]:
 def update_one(
     table: str, data: dict[str, Any], where: str, where_values: tuple = ()
 ) -> Optional[int]:
+    """Update rows matching WHERE clause. Returns affected row count."""
     set_clause = ", ".join([f"{k} = %s" for k in data])
     sql = f"UPDATE {table} SET {set_clause} WHERE {where}"
     values = tuple(data.values()) + where_values
@@ -210,6 +240,7 @@ def update_one(
 
 
 def delete_one(table: str, where: str, where_values: tuple = ()) -> Optional[int]:
+    """Delete rows matching WHERE clause. Returns affected row count."""
     sql = f"DELETE FROM {table} WHERE {where}"
     return run_query(sql, where_values, fetch=None)
 
@@ -217,6 +248,7 @@ def delete_one(table: str, where: str, where_values: tuple = ()) -> Optional[int
 def get_one(
     table: str, where: str, where_values: tuple = ()
 ) -> Optional[dict[str, Any]]:
+    """Fetch first row matching WHERE as a dict, or None."""
     sql = f"SELECT * FROM {table} WHERE {where} LIMIT 1"
     return run_query(sql, where_values, fetch="one")
 
@@ -228,6 +260,7 @@ def get_many(
     order_by: str = "",
     limit: Optional[int] = None,
 ) -> list[dict[str, Any]]:
+    """Fetch multiple rows matching WHERE as a list of dicts."""
     sql = f"SELECT * FROM {table} WHERE {where}"
     if order_by:
         sql += f" ORDER BY {order_by}"
@@ -240,6 +273,7 @@ def get_many(
 def count(
     table: str, where: str = "1=1", where_values: tuple = ()
 ) -> int:
+    """Count rows matching WHERE. Returns 0 on error."""
     sql = f"SELECT COUNT(*) AS total FROM {table} WHERE {where}"
     result = run_query(sql, where_values, fetch="one")
     if result is None:
@@ -250,6 +284,7 @@ def count(
 def exists(
     table: str, where: str, where_values: tuple = ()
 ) -> bool:
+    """Check if at least one row exists matching WHERE."""
     sql = f"SELECT 1 FROM {table} WHERE {where} LIMIT 1"
     result = run_query(sql, where_values, fetch="one")
     return result is not None
