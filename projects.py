@@ -751,3 +751,57 @@ def edit_project_record(
     update_project_fields(project_id, fields)
     logger.info("Edited project %s fields=%s", project_id, list(fields))
     return require_project(project_id)
+
+
+# ---------------------------------------------------------------------------
+# Presentation — display, alerts, reports
+# ---------------------------------------------------------------------------
+def _leader_display(row: dict[str, Any]) -> str:
+    """Format leader full name for console output."""
+    leader = f"{row.get('first_name') or ''} {row.get('last_name') or ''}".strip()
+    if leader == "":
+        return languages.t("no_leader")
+    return leader
+
+
+def _display_projects(rows: Optional[list[dict[str, Any]]]) -> None:
+    """
+    Print a compact project table with deadline urgency.
+
+    Parameters
+    ----------
+    rows:
+        Project dictionaries (may be None/empty).
+    """
+    if not rows:
+        print(languages.t("no_projects"))
+        return
+
+    today = date.today()
+    for row in rows:
+        urgency = deadline_label(row, today)
+        remaining = days_until_deadline(row["expected_end_date"], today)
+        if urgency == "OVERDUE":
+            due_note = f"OVERDUE {-remaining}d"
+        elif urgency == "N/A":
+            due_note = urgency
+        else:
+            due_note = f"{remaining}d left"
+
+        print(
+            "P#" + str(row["project_id"]).rjust(3),
+            str(row["project_name"]).ljust(28)[:28],
+            "|",
+            str(row["status"]).ljust(10),
+            "|",
+            str(row["percent_complete"]).rjust(3) + "%",
+            "|",
+            languages.t("due"),
+            str(row["expected_end_date"]),
+            f"({due_note})",
+            "|",
+            languages.t("leader") + ":",
+            _leader_display(row),
+        )
+    print()
+    print(languages.t("total") + ":", len(rows))
