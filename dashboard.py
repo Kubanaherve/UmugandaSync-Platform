@@ -33,6 +33,15 @@ def _safe_count(query_result: Optional[dict]) -> int:
 
 
 def show_dashboard(admin_name: str) -> None:
+    try:
+        _render_dashboard(admin_name)
+    except Exception as e:
+        logger.exception(f"Dashboard rendering failed: {e}")
+        helpers.error("Failed to load dashboard data. Check database connection.")
+        helpers.pause()
+
+
+def _render_dashboard(admin_name: str) -> None:
     helpers.clear_screen()
     helpers.print_line(
         languages.t("dashboard") + admin_name + " (v" + config.APP_VERSION + ")"

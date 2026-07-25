@@ -996,7 +996,7 @@ TEXTS: dict[str, dict[str, str]] = {
         "broken_tools": "Ibikoresho yangiritse",
         "new_members_week": "Abaturage bashya muri iyi cyumweru",
         "absent_count": "Abatabiriye",
-        "welcome_new_members": "Murakaza neza ku batur{\u2019}age {n} bashya biyandikishije mu byumweru 7 bishize!",
+        "welcome_new_members": "Murakaza neza ku baturage {n} bashya biyandikishije mu byumweru 7 bishize!",
         "tool_broken_warning": "Igikoresho cyangiritse: {name} (Ubwinshi: {qty})",
         "registration_success": "Iyandikisho ryagenze neza.",
     },
