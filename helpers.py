@@ -1,12 +1,13 @@
-# helpers.py
-# shared beginner helpers for UmugandaSync
-
+import logging
 import os
 from datetime import datetime, date, timedelta
-import languages
+from typing import Optional, Union
 
-# Real Umuganda activities used as remarks
-UMUGANDA_ACTIVITIES = [
+import config
+
+logger = logging.getLogger(__name__)
+
+UMUGANDA_ACTIVITIES: list[str] = [
     "Road cleaning and pothole filling",
     "Drainage clearing before rain season",
     "Community garden planting",
@@ -19,14 +20,13 @@ UMUGANDA_ACTIVITIES = [
     "General village sanitation (Umuganda)",
 ]
 
-MONTH_NAMES = [
+MONTH_NAMES: list[str] = [
     "", "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December"
+    "July", "August", "September", "October", "November", "December",
 ]
 
 
-def clear_screen():
-    # works on Mac/Linux; on Windows uses cls
+def clear_screen() -> None:
     try:
         if os.name == "nt":
             os.system("cls")
@@ -36,57 +36,63 @@ def clear_screen():
         print("\n" * 3)
 
 
-def pause():
+def pause() -> None:
+    import languages
     input(languages.t("press_enter"))
 
 
-def confirm(question):
+def confirm(question: str) -> bool:
+    import languages
     answer = input(question + languages.t("yn_prompt"))
     answer = answer.strip().lower()
-    if answer == "y" or answer == "yes" or answer == "o" or answer == "oui":
-        return True
-    return False
+    return answer in ("y", "yes", "o", "oui")
 
 
-def get_non_empty(prompt_text):
+def get_non_empty(prompt_text: str) -> str:
+    import languages
     while True:
-        value = input(prompt_text)
-        value = value.strip()
-        if value != "":
+        value = input(prompt_text).strip()
+        if value:
             return value
         print(languages.t("empty_input"))
 
 
-def get_positive_int(prompt_text):
+def get_positive_int(prompt_text: str) -> int:
+    import languages
     while True:
-        text = input(prompt_text)
-        text = text.strip()
+        text = input(prompt_text).strip()
         if text.isdigit():
             return int(text)
         print(languages.t("invalid_number"))
 
 
-def get_int_in_range(prompt_text, min_value, max_value):
+def get_int_in_range(prompt_text: str, min_value: int, max_value: int) -> int:
+    import languages
     while True:
-        text = input(prompt_text)
-        text = text.strip()
-        ok = False
-        if text.isdigit():
-            ok = True
-        if text.startswith("-") and len(text) > 1:
-            if text[1:].isdigit():
-                ok = True
+        text = input(prompt_text).strip()
+        ok = text.isdigit() or (text.startswith("-") and len(text) > 1 and text[1:].isdigit())
         if ok:
             number = int(text)
-            if number >= min_value and number <= max_value:
+            if min_value <= number <= max_value:
                 return number
         print(languages.t("invalid_range"), min_value, languages.t("and"), max_value)
 
 
-def get_date(prompt_text):
+def get_national_id(prompt_text: str) -> Optional[str]:
+    import languages
     while True:
-        text = input(prompt_text + languages.t("date_prompt"))
-        text = text.strip()
+        text = input(prompt_text).strip()
+        if text == "":
+            return None
+        if text.isdigit() and len(text) == config.NATIONAL_ID_LENGTH:
+            return text
+        print(languages.t("nid_length_error"))
+
+
+def get_date(prompt_text: str) -> str:
+    import languages
+    while True:
+        text = input(prompt_text + languages.t("date_prompt")).strip()
         try:
             datetime.strptime(text, "%Y-%m-%d")
             return text
@@ -94,33 +100,22 @@ def get_date(prompt_text):
             print(languages.t("invalid_date"))
 
 
-def today_string():
+def today_string() -> str:
     return datetime.now().strftime("%Y-%m-%d")
 
 
-def get_last_saturday(year, month):
-    """
-    Umuganda is always on the LAST Saturday of the month.
-    Works for any year / any month.
-    """
+def get_last_saturday(year: int, month: int) -> date:
     if month == 12:
         next_month_first = date(year + 1, 1, 1)
     else:
         next_month_first = date(year, month + 1, 1)
-
     last_day = next_month_first - timedelta(days=1)
-    # Monday=0 ... Saturday=5
     days_since_saturday = (last_day.weekday() - 5) % 7
-    last_saturday = last_day - timedelta(days=days_since_saturday)
-    return last_saturday
+    return last_day - timedelta(days=days_since_saturday)
 
 
-def ask_umuganda_month():
-    """
-    Leader only chooses YEAR + MONTH.
-    System calculates the official Umuganda date (last Saturday).
-    Returns: date_text (YYYY-MM-DD), year, month, month_name
-    """
+def ask_umuganda_month() -> Optional[tuple[str, int, int, str]]:
+    import languages
     print()
     print("Umuganda happens on the LAST SATURDAY of each month.")
     print()
@@ -130,7 +125,7 @@ def ask_umuganda_month():
     if year_text == "":
         year = current_year
     else:
-        if year_text.isdigit() == False:
+        if not year_text.isdigit():
             error("Invalid year.")
             return None
         year = int(year_text)
@@ -140,10 +135,8 @@ def ask_umuganda_month():
 
     print()
     print("Choose month:")
-    i = 1
-    while i <= 12:
+    for i in range(1, 13):
         print(str(i) + ".", MONTH_NAMES[i])
-        i = i + 1
 
     month = get_int_in_range("Month number (1-12): ", 1, 12)
     umuganda_day = get_last_saturday(year, month)
@@ -152,56 +145,106 @@ def ask_umuganda_month():
 
     print()
     success(
-        "Official Umuganda date: " + date_text +
-        " (Last Saturday of " + month_name + " " + str(year) + ")"
+        "Official Umuganda date: " + date_text
+        + " (Last Saturday of " + month_name + " " + str(year) + ")"
     )
     return date_text, year, month, month_name
 
 
-def choose_umuganda_remark(default_activity=None):
-    """
-    Choose a real Umuganda activity remark.
-    Always saves a remark (never empty for Umuganda sessions).
-    """
+def choose_umuganda_remark(default_activity: Optional[str] = None) -> str:
+    import languages
     print()
     print("Umuganda activity / remark:")
-    i = 0
-    while i < len(UMUGANDA_ACTIVITIES):
-        print(str(i + 1) + ".", UMUGANDA_ACTIVITIES[i])
-        i = i + 1
+    for i, activity in enumerate(UMUGANDA_ACTIVITIES, 1):
+        print(str(i) + ".", activity)
     print(str(len(UMUGANDA_ACTIVITIES) + 1) + ". Type my own remark")
 
     choice = get_int_in_range(
         "Choose activity (1-" + str(len(UMUGANDA_ACTIVITIES) + 1) + "): ",
         1,
-        len(UMUGANDA_ACTIVITIES) + 1
+        len(UMUGANDA_ACTIVITIES) + 1,
     )
 
     if choice == len(UMUGANDA_ACTIVITIES) + 1:
-        custom = get_non_empty("Type Umuganda remark: ")
-        return custom
+        return get_non_empty("Type Umuganda remark: ")
 
     return UMUGANDA_ACTIVITIES[choice - 1]
 
 
-def print_line(title=""):
+def print_line(title: str = "") -> None:
     print("-" * 50)
-    if title != "":
+    if title:
         print(title)
         print("-" * 50)
 
 
-def success(message):
+def success(message: str) -> None:
     print()
     print("✓", message)
     print()
 
 
-def error(message):
+def error(message: str) -> None:
     print()
     print("✗", message)
     print()
 
 
-def tip(message):
+def tip(message: str) -> None:
     print("  Tip:", message)
+
+
+def info(message: str) -> None:
+    print()
+    print("ℹ", message)
+    print()
+
+
+def warning(message: str) -> None:
+    print()
+    print("⚠", message)
+    print()
+
+
+def format_date(date_val: Optional[Union[datetime, date, str]]) -> str:
+    if date_val is None:
+        return ""
+    if isinstance(date_val, (datetime, date)):
+        return date_val.strftime("%Y-%m-%d")
+    return str(date_val)
+
+
+def validate_phone(phone: Optional[str]) -> Optional[str]:
+    if phone is None:
+        return None
+    phone = str(phone).strip()
+    if len(phone) == config.PHONE_LENGTH and phone.startswith(config.ALLOWED_PHONE_PREFIXES[0]) and phone.isdigit():
+        return phone
+    if phone.startswith(config.ALLOWED_PHONE_PREFIXES[1]) and phone.isdigit():
+        return phone
+    return None
+
+
+def sanitize_string(text: Optional[str]) -> str:
+    if text is None:
+        return ""
+    return str(text).strip()[:config.MAX_INPUT_LENGTH]
+
+
+def get_optional_input(prompt_text: str, default: Optional[str] = None) -> Optional[str]:
+    text = input(prompt_text).strip()
+    return text if text else default
+
+
+def validate_national_id(national_id: Optional[str]) -> tuple[bool, str]:
+    import languages
+    if national_id is None:
+        return False, languages.t("nid_empty", fallback="National ID cannot be empty.")
+    nid = str(national_id).strip()
+    if len(nid) != config.NATIONAL_ID_LENGTH:
+        return False, languages.t("nid_length_error", fallback="National ID must be exactly 16 digits.")
+    if not nid.isdigit():
+        return False, languages.t("nid_digit_error", fallback="National ID must contain only digits.")
+    if not nid.startswith("1"):
+        return False, languages.t("nid_prefix_error", fallback="Valid Rwanda National IDs start with '1'.")
+    return True, nid
