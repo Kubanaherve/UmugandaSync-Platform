@@ -1,3 +1,11 @@
+"""
+Dashboard module for UmugandaSync.
+
+Displays a comprehensive overview of community metrics including
+member counts, attendance summaries, project status, tool inventory,
+and upcoming Umuganda dates.
+"""
+
 import logging
 from datetime import datetime
 from typing import Any, Optional
@@ -14,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 def _progress_bar(percent: float, width: int = 20) -> str:
     filled = int(width * percent / 100)
-    bar = "█" * filled + "░" * (width - filled)
+    bar = "\u2588" * filled + "\u2591" * (width - filled)
     return "[" + bar + "] " + str(round(percent, 1)) + "%"
 
 
@@ -121,12 +129,12 @@ def show_dashboard(admin_name: str) -> None:
     )
 
     def print_section(title: str, lines: list[str]) -> None:
-        print("  ╔" + "═" * 42 + "╗")
-        print("  ║  {:<40}║".format(title))
-        print("  ╠" + "═" * 42 + "╣")
+        print("  \u2554" + "\u2550" * 42 + "\u2557")
+        print("  \u2551  {:<40}\u2551".format(title))
+        print("  \u2560" + "\u2550" * 42 + "\u2563")
         for line in lines:
-            print("  ║  {:<40}║".format(line))
-        print("  ╚" + "═" * 42 + "╝")
+            print("  \u2551  {:<40}\u2551".format(line))
+        print("  \u255a" + "\u2550" * 42 + "\u255d")
         print()
 
     print_section(
