@@ -217,3 +217,43 @@ def member_exists(member_id):
     """
     return get_member_by_id(member_id) is not None
 
+
+# --------------------------------------------------------------------------
+# CSV export
+# --------------------------------------------------------------------------
+def members_to_csv(rows):
+    """
+    Convert a list of member row dicts into a CSV-formatted string.
+
+    Useful for reporting/export features elsewhere in the project.
+    Returns an empty string if `rows` is empty or None.
+    """
+    if not rows:
+        return ""
+
+    buffer = io.StringIO()
+    fieldnames = list(rows[0].keys())
+    writer = csv.DictWriter(buffer, fieldnames=fieldnames)
+    writer.writeheader()
+    for row in rows:
+        writer.writerow(dict(row))
+    return buffer.getvalue()
+
+
+def export_members_csv(filepath="members_export.csv"):
+    """
+    Query all members and write them to a CSV file on disk.
+
+    Returns the number of members exported.
+    """
+    rows = database.run_query(
+        "SELECT * FROM members ORDER BY member_id", fetch="all"
+    )
+    csv_text = members_to_csv(rows)
+    with open(filepath, "w", encoding="utf-8", newline="") as f:
+        f.write(csv_text)
+
+    count = len(rows) if rows else 0
+    logger.info("Exported %d members to CSV file '%s'.", count, filepath)
+    return count
+
