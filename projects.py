@@ -920,3 +920,92 @@ def show_project_report() -> None:
         count = report["by_status"].get(status, 0)
         print(f"  {status.ljust(12)}: {count}")
     print()
+
+
+# ---------------------------------------------------------------------------
+# Interactive UI handlers
+# ---------------------------------------------------------------------------
+def register_project() -> None:
+    """Interactive flow: add a new community project."""
+    helpers.print_line(languages.t("p1"))
+    try:
+        project_name = helpers.get_non_empty(languages.t("project_name_prompt"))
+        description = input(languages.t("project_desc_prompt")).strip()
+        location = helpers.get_non_empty(languages.t("project_location_prompt"))
+        leader = helpers.get_positive_int(languages.t("project_leader_prompt"))
+        start_date = helpers.get_date(languages.t("project_start_prompt"))
+        end_date = helpers.get_date(languages.t("project_end_prompt"))
+
+        new_id = create_project_record(
+            project_name=project_name,
+            description=description,
+            location=location,
+            leader_member_id=leader,
+            start_date=start_date,
+            expected_end_date=end_date,
+        )
+        helpers.success(languages.t("project_added") + f" (ID: {new_id})")
+    except ProjectValidationError as exc:
+        helpers.error(str(exc))
+    except ProjectDataError as exc:
+        helpers.error(languages.t("project_add_failed") + f" ({exc})")
+    helpers.pause()
+
+
+def edit_project() -> None:
+    """Interactive flow: edit an existing project's details."""
+    helpers.print_line(
+        languages.t("edit_project_title", fallback="EDIT PROJECT")
+    )
+    try:
+        project_id = helpers.get_positive_int(languages.t("project_id_prompt"))
+        project = require_project(project_id)
+
+        print(languages.t("current_values") + ":")
+        print(
+            f"  {project['project_name']} | {project['status']} | "
+            f"{project['percent_complete']}% | "
+            f"{languages.t('due')} {project['expected_end_date']}"
+        )
+        print(
+            languages.t(
+                "edit_blank_keeps",
+                fallback="(Press Enter to keep a value unchanged)",
+            )
+        )
+
+        name_in = input(languages.t("project_name_prompt")).strip()
+        desc_in = input(languages.t("project_desc_prompt"))
+        loc_in = input(languages.t("project_location_prompt")).strip()
+        leader_in = input(languages.t("project_leader_prompt")).strip()
+        start_in = input(
+            languages.t("project_start_prompt") + " (YYYY-MM-DD): "
+        ).strip()
+        end_in = input(
+            languages.t("project_end_prompt") + " (YYYY-MM-DD): "
+        ).strip()
+        status_in = input(
+            languages.t("status_prompt", fallback="Status: ")
+        ).strip()
+
+        updated = edit_project_record(
+            project_id,
+            project_name=name_in or None,
+            description=desc_in.strip() if desc_in.strip() else None,
+            location=loc_in or None,
+            leader_member_id=int(leader_in) if leader_in else None,
+            start_date=start_in or None,
+            expected_end_date=end_in or None,
+            status=status_in or None,
+        )
+        helpers.success(
+            languages.t("project_updated")
+            + f" (P#{updated['project_id']})"
+        )
+    except ProjectNotFoundError:
+        helpers.error(languages.t("project_not_found"))
+    except (ProjectValidationError, ValueError) as exc:
+        helpers.error(str(exc))
+    except ProjectDataError as exc:
+        helpers.error(languages.t("project_update_failed") + f" ({exc})")
+    helpers.pause()
