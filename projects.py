@@ -1126,3 +1126,78 @@ def project_reports_menu() -> None:
     print()
     show_overdue_alerts()
     helpers.pause()
+
+
+def project_menu() -> None:
+    """
+    Main project management menu.
+
+    Options
+    -------
+    1 Add project
+    2 View all
+    3 Ongoing
+    4 Completed
+    5 Overdue list
+    6 Search
+    7 Progress tracking
+    8 Complete project
+    9 Delete project
+    10 Edit project
+    11 Deadline monitoring
+    12 Reports & overdue alerts
+    0 Back
+    """
+    running = True
+    while running:
+        helpers.print_line(languages.t("project_menu"))
+        print(languages.t("p1"))
+        print(languages.t("p2"))
+        print(languages.t("p3"))
+        print(languages.t("p4"))
+        print(languages.t("p5"))
+        print(languages.t("p6"))
+        print(languages.t("p7"))
+        print(languages.t("p8"))
+        print(languages.t("p9"))
+        print("10. " + languages.t("edit_project_title", fallback="Edit project"))
+        print(
+            "11. "
+            + languages.t("deadline_monitor_title", fallback="Deadline monitoring")
+        )
+        print(
+            "12. "
+            + languages.t("project_report_title", fallback="Project reports & alerts")
+        )
+        print(languages.t("p0"))
+        choice = input(languages.t("enter_choice")).strip()
+
+        if choice == "1":
+            register_project()
+        elif choice == "2":
+            view_all_projects()
+        elif choice == "3":
+            view_projects_by_status("Ongoing")
+        elif choice == "4":
+            view_projects_by_status("Completed")
+        elif choice == "5":
+            view_overdue_projects()
+        elif choice == "6":
+            search_projects()
+        elif choice == "7":
+            update_project_progress()
+        elif choice == "8":
+            mark_project_completed()
+        elif choice == "9":
+            delete_project()
+        elif choice == "10":
+            edit_project()
+        elif choice == "11":
+            show_deadline_monitor()
+            helpers.pause()
+        elif choice == "12":
+            project_reports_menu()
+        elif choice == "0":
+            running = False
+        else:
+            helpers.error(languages.t("invalid_choice"))
