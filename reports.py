@@ -166,3 +166,59 @@ def _write_export(filepath: str, lines: list[str]) -> str:
     except OSError as exc:
         logger.exception("Export failed for %s", filepath)
         raise ReportExportError(f"Could not write {filepath}: {exc}") from exc
+
+
+# =============================================================================
+# Metric builders
+# =============================================================================
+def build_community_metrics() -> dict[str, Any]:
+    """
+    Collect high-level community KPIs for the dashboard-style summary.
+
+    Returns
+    -------
+    dict
+        Keys: total_members, active_members, total_projects, ongoing_projects,
+        tool_types, available_tool_units, attendance_days, completion_rate
+    """
+    total_members = _query("SELECT COUNT(*) AS total FROM members", fetch="one")
+    active_members = _query(
+        "SELECT COUNT(*) AS total FROM members WHERE status='Active'",
+        fetch="one",
+    )
+    total_projects = _query("SELECT COUNT(*) AS total FROM projects", fetch="one")
+    ongoing = _query(
+        "SELECT COUNT(*) AS total FROM projects WHERE status='Ongoing'",
+        fetch="one",
+    )
+    completed = _query(
+        "SELECT COUNT(*) AS total FROM projects WHERE status='Completed'",
+        fetch="one",
+    )
+    total_tools = _query("SELECT COUNT(*) AS total FROM tools", fetch="one")
+    available_tools = _query(
+        "SELECT SUM(available_quantity) AS total FROM tools",
+        fetch="one",
+    )
+    attendance_days = _query(
+        "SELECT COUNT(DISTINCT attendance_date) AS total FROM attendance",
+        fetch="one",
+    )
+
+    total_p = safe_row(total_projects, "total")
+    completed_n = safe_row(completed, "total")
+    completion_rate = (
+        round(100.0 * float(completed_n) / float(total_p), 1) if total_p else 0.0
+    )
+
+    return {
+        "total_members": safe_row(total_members, "total"),
+        "active_members": safe_row(active_members, "total"),
+        "total_projects": total_p,
+        "ongoing_projects": safe_row(ongoing, "total"),
+        "completed_projects": completed_n,
+        "tool_types": safe_row(total_tools, "total"),
+        "available_tool_units": safe_row(available_tools, "total"),
+        "attendance_days": safe_row(attendance_days, "total"),
+        "completion_rate": completion_rate,
+    }
