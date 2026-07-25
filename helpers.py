@@ -1,5 +1,13 @@
+"""
+Shared utility functions for UmugandaSync.
+
+Provides input validation, screen control, date utilities,
+and display helpers used across all modules.
+"""
+
 import logging
 import os
+import re
 from datetime import datetime, date, timedelta
 from typing import Optional, Union
 
@@ -181,13 +189,13 @@ def print_line(title: str = "") -> None:
 
 def success(message: str) -> None:
     print()
-    print("✓", message)
+    print("\u2713", message)
     print()
 
 
 def error(message: str) -> None:
     print()
-    print("✗", message)
+    print("\u2717", message)
     print()
 
 
@@ -219,7 +227,11 @@ def validate_phone(phone: Optional[str]) -> Optional[str]:
     if phone is None:
         return None
     phone = str(phone).strip()
-    if len(phone) == config.PHONE_LENGTH and phone.startswith(config.ALLOWED_PHONE_PREFIXES[0]) and phone.isdigit():
+    if (
+        len(phone) == config.PHONE_LENGTH
+        and phone.startswith(config.ALLOWED_PHONE_PREFIXES[0])
+        and phone.isdigit()
+    ):
         return phone
     if phone.startswith(config.ALLOWED_PHONE_PREFIXES[1]) and phone.isdigit():
         return phone
@@ -246,6 +258,21 @@ def validate_national_id(national_id: Optional[str]) -> tuple[bool, str]:
         return False, languages.t("nid_length_error", fallback="National ID must be exactly 16 digits.")
     if not nid.isdigit():
         return False, languages.t("nid_digit_error", fallback="National ID must contain only digits.")
-    if not nid.startswith("1"):
+    if not nid.startswith(config.NATIONAL_ID_PREFIX):
         return False, languages.t("nid_prefix_error", fallback="Valid Rwanda National IDs start with '1'.")
     return True, nid
+
+
+_EMAIL_REGEX = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
+
+
+def validate_email(email: Optional[str]) -> tuple[bool, str]:
+    import languages
+    if email is None or email.strip() == "":
+        return False, languages.t("validate_email_empty", fallback="Email cannot be empty.")
+    email = email.strip()
+    if len(email) > config.MAX_INPUT_LENGTH:
+        return False, "Email is too long."
+    if _EMAIL_REGEX.match(email):
+        return True, email
+    return False, languages.t("validate_email_invalid", fallback="Invalid email format.")
