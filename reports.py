@@ -432,3 +432,59 @@ def build_kpi_snapshot() -> dict[str, Any]:
         "open_borrows": len(inventory["borrowed"]),
         "active_members": community["active_members"],
     }
+
+
+# =============================================================================
+# Console presentation
+# =============================================================================
+def community_summary() -> None:
+    """Print high-level community totals."""
+    helpers.print_line(
+        languages.t("community_summary_title", fallback="COMMUNITY SUMMARY")
+    )
+    try:
+        m = build_community_metrics()
+    except ReportQueryError as exc:
+        helpers.error(str(exc))
+        helpers.pause()
+        return
+
+    print("Total members:", m["total_members"])
+    print("Active members:", m["active_members"])
+    print("Total projects:", m["total_projects"])
+    print("Ongoing projects:", m["ongoing_projects"])
+    print("Completed projects:", m["completed_projects"])
+    print(
+        languages.t("project_completion_rate", fallback="Completion rate:"),
+        f"{m['completion_rate']}%",
+    )
+    print("Tool types:", m["tool_types"])
+    print("Available tool units:", m["available_tool_units"])
+    print("Umuganda dates recorded:", m["attendance_days"])
+    helpers.pause()
+
+
+def member_report() -> None:
+    """Print member counts by status and village."""
+    helpers.print_line(languages.t("member_report_title", fallback="MEMBER REPORT"))
+    try:
+        data = build_member_breakdown()
+    except ReportQueryError as exc:
+        helpers.error(str(exc))
+        helpers.pause()
+        return
+
+    print("\n--- By status ---")
+    if not data["by_status"]:
+        print("No members.")
+    else:
+        for row in data["by_status"]:
+            print(f"{row['status']}: {row['total']}")
+
+    print("\n--- By village ---")
+    if not data["by_village"]:
+        print("No village data.")
+    else:
+        for row in data["by_village"]:
+            print(f"{row['village']}: {row['total']}")
+    helpers.pause()
