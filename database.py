@@ -30,6 +30,30 @@ POOL_NAME: str = "umuganda_pool"
 POOL_SIZE: int = 5
 CONNECT_TIMEOUT: int = 10
 
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
+
+import re
+
+RWANDA_NATIONAL_ID_PATTERN = r"^\d{16}$"
+
+
+def validate_national_id(national_id):
+    """
+    Validate Rwanda National ID.
+    Returns True if valid.
+    """
+    if national_id is None:
+        return False
+
+    return bool(re.fullmatch(RWANDA_NATIONAL_ID_PATTERN, national_id))
+
+if not validate_national_id("1199780123456789"):
+    print("Invalid National ID")
 
 def _get_pool() -> Optional[MySQLConnectionPool]:
     global _pool
@@ -142,7 +166,7 @@ def run_query(
     except Error as e:
         logger.error(f"SQL error: {e}")
         sql_preview = sql[:80] + "..." if len(sql) > 80 else sql
-        print(f"SQL error: {e}")
+        logging.error("SQL Error: %s", e)
         print(f"Query: {sql_preview}")
         try:
             connection.rollback()
