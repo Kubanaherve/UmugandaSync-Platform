@@ -595,3 +595,46 @@ def deadline_label(project: dict[str, Any], today: Optional[date] = None) -> str
     if remaining <= DEADLINE_WARN_DAYS:
         return "DUE_SOON"
     return "ON_TRACK"
+
+
+def apply_progress(project_id: int, percent: int) -> dict[str, Any]:
+    """
+    Update progress and derived status for a project.
+
+    Returns
+    -------
+    dict
+        Updated project row.
+    """
+    percent = validate_percent_complete(percent)
+    project = require_project(project_id)
+    new_status = derive_status_from_progress(project["status"], percent)
+    update_project_fields(
+        project_id,
+        {"percent_complete": percent, "status": new_status},
+    )
+    logger.info(
+        "Project %s progress set to %s%% (status=%s)",
+        project_id,
+        percent,
+        new_status,
+    )
+    return require_project(project_id)
+
+
+def complete_project(project_id: int) -> dict[str, Any]:
+    """
+    Mark a project completed at 100%.
+
+    Returns
+    -------
+    dict
+        Updated project.
+    """
+    require_project(project_id)
+    update_project_fields(
+        project_id,
+        {"status": "Completed", "percent_complete": 100},
+    )
+    logger.info("Project %s marked completed", project_id)
+    return require_project(project_id)
