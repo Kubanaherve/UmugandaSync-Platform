@@ -36,6 +36,19 @@ def normalize_status(status):
     return None
 
 
+def select_attendance_status(allow_skip=False):
+    """Prompt for and return a valid attendance status."""
+    prompt = "1=Present  2=Absent  3=Excused  4=Late"
+    if allow_skip:
+        prompt += "  5=Skip"
+    print(prompt)
+
+    choice = input("Choose status: ").strip()
+    if allow_skip and choice == "5":
+        return None
+    return STATUS_CHOICES.get(choice)
+
+
 def attendance_menu():
     running = True
     while running:
