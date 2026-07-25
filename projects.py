@@ -638,3 +638,50 @@ def complete_project(project_id: int) -> dict[str, Any]:
     )
     logger.info("Project %s marked completed", project_id)
     return require_project(project_id)
+
+
+def create_project_record(
+    *,
+    project_name: str,
+    description: Optional[str],
+    location: str,
+    leader_member_id: int,
+    start_date: str,
+    expected_end_date: str,
+) -> int:
+    """
+    Validate inputs and insert a new project.
+
+    Returns
+    -------
+    int
+        New project_id.
+
+    Raises
+    ------
+    ProjectValidationError
+        On invalid input or missing leader.
+    """
+    name = validate_project_name(project_name)
+    loc = validate_location(location)
+    desc = validate_description(description)
+    leader = validate_leader_id(leader_member_id)
+    start = validate_date_string(start_date, field_name="Start date")
+    end = validate_date_string(expected_end_date, field_name="Expected end date")
+    validate_date_range(start, end)
+
+    if not member_exists(leader):
+        raise ProjectValidationError("Leader member was not found.")
+
+    new_id = insert_project(
+        project_name=name,
+        description=desc,
+        location=loc,
+        leader_member_id=leader,
+        start_date=start,
+        expected_end_date=end,
+        status="Pending",
+        percent_complete=0,
+    )
+    logger.info("Created project %s (%s)", new_id, name)
+    return new_id
