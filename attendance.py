@@ -105,6 +105,7 @@ def attendance_menu():
         print(languages.t("a7"))
         print(languages.t("a8"))
         print(languages.t("a9"))
+        print("10. Monthly attendance summary")
         print(languages.t("a0"))
         choice = input(languages.t("enter_choice")).strip()
 
@@ -126,6 +127,8 @@ def attendance_menu():
             record_village_or_all_attendance()
         elif choice == "9":
             member_lifetime_summary()
+        elif choice == "10":
+            monthly_attendance_summary()
         elif choice == "0":
             running = False
         else:
@@ -398,6 +401,26 @@ def get_monthly_summary(attendance_date):
         else 0.0
     )
     return summary
+
+
+def monthly_attendance_summary():
+    """Display a complete summary for one selected Umuganda month."""
+    helpers.print_line("MONTHLY ATTENDANCE SUMMARY")
+    month_info = helpers.ask_umuganda_month()
+    if month_info is None:
+        helpers.pause()
+        return
+
+    attendance_date = month_info[0]
+    summary = get_monthly_summary(attendance_date)
+    print("Umuganda date:", attendance_date)
+    print("Total records:", summary["total"])
+    print("Present:", summary["present"])
+    print("Late:", summary["late"])
+    print("Absent:", summary["absent"])
+    print("Excused:", summary["excused"])
+    print("Attendance percentage:", summary["percentage"], "%")
+    helpers.pause()
 
 
 def attendance_analytics():
