@@ -840,3 +840,24 @@ def show_overdue_alerts() -> int:
             f"— {row['percent_complete']}% — leader: {_leader_display(row)}"
         )
     return len(rows)
+
+
+def show_deadline_monitor() -> None:
+    """Show overdue + nearing-deadline projects for monitoring."""
+    helpers.print_line(
+        languages.t("deadline_monitor_title", fallback="DEADLINE MONITORING")
+    )
+
+    overdue = fetch_overdue_projects()
+    soon = fetch_projects_nearing_deadline()
+
+    print(languages.t("overdue_section", fallback="-- Overdue --"))
+    _display_projects(overdue)
+
+    print(
+        languages.t(
+            "due_soon_section",
+            fallback=f"-- Due within {DEADLINE_WARN_DAYS} days --",
+        )
+    )
+    _display_projects(soon)
