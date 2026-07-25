@@ -38,3 +38,18 @@ import languages
 logger = logging.getLogger(__name__)
 
 EXPORT_DIR = os.environ.get("UMUGANDA_CSV_DIR", "exports")
+
+
+# =============================================================================
+# Exceptions
+# =============================================================================
+class ReportError(Exception):
+    """Base error for the reports module."""
+
+
+class ReportQueryError(ReportError):
+    """Raised when a report query fails or returns unusable data."""
+
+
+class ReportExportError(ReportError):
+    """Raised when a report cannot be written to disk."""
