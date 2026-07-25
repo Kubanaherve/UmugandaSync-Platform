@@ -222,3 +222,26 @@ def build_community_metrics() -> dict[str, Any]:
         "attendance_days": safe_row(attendance_days, "total"),
         "completion_rate": completion_rate,
     }
+
+
+def build_member_breakdown() -> dict[str, list[dict[str, Any]]]:
+    """Return member counts grouped by status and by village."""
+    by_status = _query(
+        """
+        SELECT status, COUNT(*) AS total
+        FROM members
+        GROUP BY status
+        ORDER BY status
+        """,
+        fetch="all",
+    ) or []
+    by_village = _query(
+        """
+        SELECT village, COUNT(*) AS total
+        FROM members
+        GROUP BY village
+        ORDER BY total DESC
+        """,
+        fetch="all",
+    ) or []
+    return {"by_status": by_status, "by_village": by_village}
