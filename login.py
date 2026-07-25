@@ -1,13 +1,18 @@
-# login.py
-# Admin login OR community member login (two different roles)
+import logging
+from typing import Optional
 
 import database
 import helpers
 import menu
 import languages
+import config
+
+logger = logging.getLogger(__name__)
+
+ATTEMPT_STORE: dict[str, int] = {}
 
 
-def choose_entry_type():
+def choose_entry_type() -> Optional[str]:
     helpers.clear_screen()
     menu.show_login_header()
     print("-" * 44)
@@ -23,101 +28,111 @@ def choose_entry_type():
     choice = input(languages.t("entry_prompt")).strip()
 
     if choice == "1":
+        logger.debug("User selected admin entry")
         return "admin"
     elif choice == "2":
+        logger.debug("User selected member entry")
         return "member"
     elif choice == "0":
+        logger.debug("User selected exit")
         return "exit"
     else:
         helpers.error(languages.t("invalid_choice"))
         return None
 
 
-def login():
+def login() -> Optional[dict]:
     helpers.clear_screen()
     menu.show_login_header()
     print(languages.t("please_login"))
     print(languages.t("demo_login"))
     print()
 
-    attempts = 0
-    max_attempts = 3
+    remaining = config.MAX_LOGIN_ATTEMPTS
 
-    while attempts < max_attempts:
+    while remaining > 0:
         username = helpers.get_non_empty(languages.t("username"))
         password = helpers.get_non_empty(languages.t("password"))
 
-        sql = """
-            SELECT admin_id, username, full_name
-            FROM admins
-            WHERE username = %s AND password = %s
-        """
-        row = database.run_query(sql, (username, password), fetch="one")
+        row = database.run_query(
+            """SELECT admin_id, username, full_name
+               FROM admins
+               WHERE username = %s AND password = %s""",
+            (username, password),
+            fetch="one",
+        )
 
-        if row != None:
+        if row is not None:
+            ATTEMPT_STORE["admin"] = 0
+            logger.info(f"Admin '{row['full_name']}' logged in successfully")
             helpers.success(languages.t("login_ok") + " " + row["full_name"] + "!")
             helpers.pause()
             return row
 
-        attempts = attempts + 1
-        left = max_attempts - attempts
+        remaining -= 1
+        ATTEMPT_STORE["admin"] = ATTEMPT_STORE.get("admin", 0) + 1
         helpers.error(languages.t("login_bad"))
-        if left > 0:
-            print(languages.t("attempts_left"), left)
+        if remaining > 0:
+            print(languages.t("attempts_left"), remaining)
             print()
 
+    logger.warning(f"Admin login failed after {config.MAX_LOGIN_ATTEMPTS} attempts")
     helpers.error(languages.t("too_many_attempts"))
     return None
 
 
-def member_login():
+def member_login() -> Optional[dict]:
     helpers.clear_screen()
     helpers.print_line(languages.t("member_entry_title"))
     print(languages.t("member_entry_help"))
     print(languages.t("member_demo"))
     print()
 
-    attempts = 0
-    max_attempts = 3
+    remaining = config.MAX_LOGIN_ATTEMPTS
 
-    while attempts < max_attempts:
+    while remaining > 0:
         member_id = helpers.get_positive_int(languages.t("member_id_prompt"))
         phone = helpers.get_non_empty(languages.t("member_phone_prompt"))
 
-        sql = """
-            SELECT *
-            FROM members
-            WHERE member_id = %s AND phone = %s
-        """
-        row = database.run_query(sql, (member_id, phone), fetch="one")
+        row = database.run_query(
+            """SELECT *
+               FROM members
+               WHERE member_id = %s AND phone = %s""",
+            (member_id, phone),
+            fetch="one",
+        )
 
-        if row != None:
+        if row is not None:
             if row["status"] != "Active":
                 helpers.error(languages.t("member_inactive"))
+                logger.warning(
+                    f"Inactive member ID {member_id} attempted login"
+                )
                 helpers.pause()
                 return None
 
+            full_name = f"{row['first_name']} {row['last_name']}"
+            logger.info(f"Member '{full_name}' (ID {member_id}) logged in")
             helpers.success(
-                languages.t("member_login_ok") + " " +
-                row["first_name"] + " " + row["last_name"] + "!"
+                languages.t("member_login_ok") + " " + full_name + "!"
             )
-            print("  Village:", row["village"], "| Cell:", row["cell_name"])
-            print("  Phone  :", row["phone"], "| ID:", row["member_id"])
+            print(f"  Village: {row['village']} | Cell: {row['cell_name']}")
+            print(f"  Phone  : {row['phone']} | ID: {row['member_id']}")
             helpers.pause()
             return row
 
-        attempts = attempts + 1
-        left = max_attempts - attempts
+        remaining -= 1
         helpers.error(languages.t("member_login_bad"))
-        if left > 0:
-            print(languages.t("attempts_left"), left)
+        if remaining > 0:
+            print(languages.t("attempts_left"), remaining)
             print()
 
+    logger.warning(f"Member login failed after {config.MAX_LOGIN_ATTEMPTS} attempts")
     helpers.error(languages.t("too_many_attempts"))
     return None
 
 
-def show_member_menu():
+def show_member_menu() -> None:
     print()
     print("-" * 44)
     print(languages.t("member_menu_title"))
