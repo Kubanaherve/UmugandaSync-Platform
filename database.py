@@ -175,6 +175,37 @@ def run_query(
         close_db(connection, cursor)
         return None
 
+def execute_transaction(queries):
+    """
+    Execute multiple SQL statements in one transaction.
+
+    queries = [
+        ("UPDATE ...", values),
+        ("INSERT ...", values)
+    ]
+    """
+    connection = connect_db()
+
+    if connection is None:
+        return False
+
+    cursor = None
+
+    try:
+        cursor = connection.cursor()
+
+        for sql, values in queries:
+            cursor.execute(sql, values)
+
+        connection.commit()
+        return True
+
+    except Error:
+        connection.rollback()
+        raise
+
+    finally:
+        close_db(connection, cursor)
 
 def test_connection() -> bool:
     """Quick health check — returns True if database is reachable."""
