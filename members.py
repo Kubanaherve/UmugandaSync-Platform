@@ -257,3 +257,41 @@ def export_members_csv(filepath="members_export.csv"):
     logger.info("Exported %d members to CSV file '%s'.", count, filepath)
     return count
 
+
+# --------------------------------------------------------------------------
+# Menu
+# --------------------------------------------------------------------------
+def member_menu():
+    """Interactive CLI menu for member management."""
+    running = True
+    while running:
+        helpers.print_line(languages.t("member_menu"))
+        print(languages.t("m1"))
+        print(languages.t("m2"))
+        print(languages.t("m3"))
+        print(languages.t("m4"))
+        print(languages.t("m5"))
+        print(languages.t("m6"))
+        print(languages.t("m7"))
+        print(languages.t("m0"))
+        choice = input(languages.t("enter_choice")).strip()
+
+        if choice == "1":
+            add_member()
+        elif choice == "2":
+            view_members()
+        elif choice == "3":
+            search_member()
+        elif choice == "4":
+            update_member()
+        elif choice == "5":
+            delete_member()
+        elif choice == "6":
+            set_member_status("Inactive")
+        elif choice == "7":
+            set_member_status("Active")
+        elif choice == "0":
+            running = False
+        else:
+            print(languages.t("invalid_choice"))
+
