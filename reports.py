@@ -618,3 +618,105 @@ def project_summary() -> None:
                 row["expected_end_date"],
             )
     helpers.pause()
+
+
+def inventory_summary() -> None:
+    """Print tool inventory, low stock, and open borrows."""
+    helpers.print_line(
+        languages.t("inventory_summary_title", fallback="INVENTORY SUMMARY")
+    )
+    try:
+        data = build_inventory_summary()
+    except ReportQueryError as exc:
+        helpers.error(str(exc))
+        helpers.pause()
+        return
+
+    totals = data["totals"]
+    print("Tool types:", safe_num(totals.get("tool_types")))
+    print("Total units:", safe_num(totals.get("total_units")))
+    print("Available units:", safe_num(totals.get("available_units")))
+
+    print("\n--- By condition ---")
+    if not data["by_condition"]:
+        print("No tools.")
+    else:
+        for row in data["by_condition"]:
+            print(f"{row['condition_status']}: {row['total']}")
+
+    print("\n--- Low stock ---")
+    if not data["low_stock"]:
+        print("None")
+    else:
+        for row in data["low_stock"]:
+            print(
+                row["tool_name"],
+                ":",
+                row["available_quantity"],
+                "left (limit",
+                row["low_stock_limit"],
+                ")",
+            )
+
+    print("\n--- Currently borrowed ---")
+    if not data["borrowed"]:
+        print("No open borrows.")
+    else:
+        for row in data["borrowed"]:
+            print(
+                row["tool_name"],
+                "x",
+                row["quantity"],
+                "->",
+                row["first_name"],
+                row["last_name"],
+                "since",
+                row["borrow_date"],
+            )
+    helpers.pause()
+
+
+def attendance_by_village() -> None:
+    """Print attendance aggregates per village."""
+    helpers.print_line(
+        languages.t("attendance_by_village_title", fallback="ATTENDANCE BY VILLAGE")
+    )
+    try:
+        rows = build_attendance_by_village()
+    except ReportQueryError as exc:
+        helpers.error(str(exc))
+        helpers.pause()
+        return
+
+    if not rows:
+        print("No data.")
+    else:
+        for row in rows:
+            print(
+                row["village"],
+                "| records:",
+                row["records"],
+                "| present/late:",
+                row["present_like"],
+                "| absent:",
+                row["absents"],
+            )
+    helpers.pause()
+
+
+def kpi_snapshot_report() -> None:
+    """Print compact operational KPIs for quick leader review."""
+    helpers.print_line(languages.t("kpi_snapshot_title", fallback="KPI SNAPSHOT"))
+    try:
+        kpi = build_kpi_snapshot()
+    except ReportQueryError as exc:
+        helpers.error(str(exc))
+        helpers.pause()
+        return
+
+    print("Active members:", kpi["active_members"])
+    print("Ongoing projects:", kpi["ongoing_projects"])
+    print("Project completion rate:", f"{kpi['completion_rate']}%")
+    print("Low-stock tool types:", kpi["low_stock_items"])
+    print("Open tool borrows:", kpi["open_borrows"])
+    helpers.pause()
