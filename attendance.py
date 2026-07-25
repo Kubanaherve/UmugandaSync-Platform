@@ -74,6 +74,11 @@ def get_existing_attendance(member_id, attendance_date):
     )
 
 
+def build_session_remark(month_name, year, activity):
+    """Build a consistent description for an Umuganda session."""
+    return f"Umuganda {month_name} {year} — {activity}"
+
+
 def attendance_menu():
     running = True
     while running:
