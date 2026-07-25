@@ -313,6 +313,34 @@ def search_attendance():
         helpers.pause()
 
 
+def get_member_attendance_stats(member_id):
+    """Return attendance totals using one optimized aggregate query."""
+    row = database.run_query(
+        """
+        SELECT
+            COUNT(*) AS total,
+            SUM(CASE WHEN status IN ('Present', 'Late') THEN 1 ELSE 0 END)
+                AS attended,
+            SUM(CASE WHEN status = 'Absent' THEN 1 ELSE 0 END) AS missed,
+            SUM(CASE WHEN status = 'Excused' THEN 1 ELSE 0 END) AS excused
+        FROM attendance
+        WHERE member_id = %s
+        """,
+        (member_id,),
+        fetch="one",
+    )
+
+    if row is None:
+        return {"total": 0, "attended": 0, "missed": 0, "excused": 0}
+
+    return {
+        "total": int(row.get("total") or 0),
+        "attended": int(row.get("attended") or 0),
+        "missed": int(row.get("missed") or 0),
+        "excused": int(row.get("excused") or 0),
+    }
+
+
 def member_attendance_percentage():
     helpers.print_line("ATTENDANCE PERCENTAGE")
     member_id = helpers.get_positive_int("Member ID: ")
