@@ -23,6 +23,16 @@ def ask_condition_status(default=None):
     return CONDITION_MAP.get(cond_choice, default if default else "Good")
 
 
+def format_tool_line(row):
+    """Build a single display line for a tool row, flagging low stock."""
+    flag = " << LOW STOCK" if row["available_quantity"] <= row["low_stock_limit"] else ""
+    return (
+        f'ID: {row["tool_id"]} | {row["tool_name"]} | {row["category"]} | '
+        f'Available: {row["available_quantity"]}/{row["total_quantity"]} | '
+        f'{row["condition_status"]}{flag}'
+    )
+
+
 def get_tool_by_id(tool_id):
     """Fetch a single tool row by its ID, or None if it does not exist."""
     return database.run_query(
@@ -114,18 +124,7 @@ def view_tools():
         print("No tools found.")
     else:
         for row in rows:
-            flag = ""
-            if row["available_quantity"] <= row["low_stock_limit"]:
-                flag = " << LOW STOCK"
-            print(
-                "ID:", row["tool_id"], "|",
-                row["tool_name"], "|",
-                row["category"], "|",
-                "Available:", row["available_quantity"], "/",
-                row["total_quantity"], "|",
-                row["condition_status"],
-                flag
-            )
+            print(format_tool_line(row))
     helpers.pause()
 
 
