@@ -342,46 +342,24 @@ def get_member_attendance_stats(member_id):
 
 
 def member_attendance_percentage():
+    """Display a member's overall attendance percentage."""
     helpers.print_line("ATTENDANCE PERCENTAGE")
     member_id = helpers.get_positive_int("Member ID: ")
-    if members.member_exists(member_id) == False:
-        print("Member not found.")
+    if get_member_record(member_id) is None:
+        helpers.error("Member not found.")
         helpers.pause()
         return
 
-    total_row = database.run_query(
-        "SELECT COUNT(*) AS total FROM attendance WHERE member_id = %s",
-        (member_id,),
-        fetch="one"
-    )
-    attended_row = database.run_query(
-        """
-        SELECT COUNT(*) AS attended FROM attendance
-        WHERE member_id = %s AND (status = 'Present' OR status = 'Late')
-        """,
-        (member_id,),
-        fetch="one"
-    )
-    missed_row = database.run_query(
-        """
-        SELECT COUNT(*) AS missed FROM attendance
-        WHERE member_id = %s AND status = 'Absent'
-        """,
-        (member_id,),
-        fetch="one"
-    )
-
-    total = total_row["total"]
-    attended = attended_row["attended"]
-    missed = missed_row["missed"]
-
+    stats = get_member_attendance_stats(member_id)
+    total = stats["total"]
     if total == 0:
         print("No attendance records for this member yet.")
     else:
-        percentage = (attended / total) * 100
+        percentage = (stats["attended"] / total) * 100
         print("Total sessions recorded:", total)
-        print("Attended (Present/Late):", attended)
-        print("Missed (Absent):", missed)
+        print("Attended (Present/Late):", stats["attended"])
+        print("Missed (Absent):", stats["missed"])
+        print("Excused:", stats["excused"])
         print("Attendance percentage:", round(percentage, 1), "%")
     helpers.pause()
 
