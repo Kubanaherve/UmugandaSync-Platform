@@ -539,3 +539,59 @@ def fetch_average_completion() -> float:
     if row is None or row["avg_pct"] is None:
         return 0.0
     return float(row["avg_pct"])
+
+
+# ---------------------------------------------------------------------------
+# Domain services — deadlines, progress, overdue
+# ---------------------------------------------------------------------------
+def _parse_date(value: Any) -> date:
+    """Parse a DB date / string into a date object."""
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    return datetime.strptime(str(value), "%Y-%m-%d").date()
+
+
+def days_until_deadline(expected_end_date: Any, today: Optional[date] = None) -> int:
+    """
+    Days remaining until deadline (negative if overdue).
+
+    Parameters
+    ----------
+    expected_end_date:
+        Project deadline.
+    today:
+        Reference day; defaults to local today.
+    """
+    if today is None:
+        today = date.today()
+    return (_parse_date(expected_end_date) - today).days
+
+
+def is_project_overdue(project: dict[str, Any], today: Optional[date] = None) -> bool:
+    """True when project is active and past expected_end_date."""
+    if project.get("status") not in ACTIVE_STATUSES:
+        return False
+    return days_until_deadline(project["expected_end_date"], today) < 0
+
+
+def deadline_label(project: dict[str, Any], today: Optional[date] = None) -> str:
+    """
+    Human-readable deadline urgency label.
+
+    Returns
+    -------
+    str
+        One of: OVERDUE, DUE_TODAY, DUE_SOON, ON_TRACK, N/A
+    """
+    if project.get("status") in ("Completed", "Cancelled"):
+        return "N/A"
+    remaining = days_until_deadline(project["expected_end_date"], today)
+    if remaining < 0:
+        return "OVERDUE"
+    if remaining == 0:
+        return "DUE_TODAY"
+    if remaining <= DEADLINE_WARN_DAYS:
+        return "DUE_SOON"
+    return "ON_TRACK"
