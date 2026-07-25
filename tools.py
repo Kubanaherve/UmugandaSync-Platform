@@ -1,6 +1,9 @@
 # tools.py
 # Owner: Rosette
-# inventory and borrow/return tools
+# Inventory and borrow/return tools.
+# Reusable helpers (get_tool_by_id, ask_condition_status, format_tool_line,
+# adjust_available_quantity) keep the CRUD/borrow/return actions short and
+# avoid repeating the same query or menu logic in multiple places.
 
 import database
 import helpers
@@ -99,6 +102,9 @@ def add_tool():
     available_quantity = total_quantity
     condition_status = ask_condition_status()
     low_stock_limit = helpers.get_positive_int("Low stock limit: ")
+
+    if low_stock_limit > total_quantity:
+        print("Warning: low stock limit is higher than total quantity.")
 
     result = database.run_query(
         """
