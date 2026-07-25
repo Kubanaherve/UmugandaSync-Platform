@@ -28,7 +28,8 @@ def _get_pool() -> Optional[MySQLConnectionPool]:
     if _pool is None:
         try:
             _pool = MySQLConnectionPool(
-                pool_name=POOL_NAME,
+                pool_name=POOL_N
+AME,
                 pool_size=POOL_SIZE,
                 host=config.DB_HOST,
                 user=config.DB_USER,
@@ -216,6 +217,24 @@ def get_many(
         sql += f" LIMIT {limit}"
     result = run_query(sql, where_values, fetch="all")
     return result if result is not None else []
+
+
+def count(
+    table: str, where: str = "1=1", where_values: tuple = ()
+) -> int:
+    sql = f"SELECT COUNT(*) AS total FROM {table} WHERE {where}"
+    result = run_query(sql, where_values, fetch="one")
+    if result is None:
+        return 0
+    return result.get("total", 0) or 0
+
+
+def exists(
+    table: str, where: str, where_values: tuple = ()
+) -> bool:
+    sql = f"SELECT 1 FROM {table} WHERE {where} LIMIT 1"
+    result = run_query(sql, where_values, fetch="one")
+    return result is not None
 
 
 if __name__ == "__main__":
