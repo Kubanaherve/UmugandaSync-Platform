@@ -22,6 +22,7 @@ def attendance_menu():
         print(languages.t("a7"))
         print(languages.t("a8"))
         print(languages.t("a9"))
+        print("10. " + languages.t("monthly_summary", fallback="Monthly Attendance Summary"))
         print(languages.t("a0"))
         choice = input(languages.t("enter_choice")).strip()
 
@@ -43,6 +44,8 @@ def attendance_menu():
             record_village_or_all_attendance()
         elif choice == "9":
             member_lifetime_summary()
+        elif choice == "10":
+            monthly_attendance_summary()
         elif choice == "0":
             running = False
         else:
@@ -682,5 +685,52 @@ def member_own_history(member):
             if row["remarks"] != None:
                 extra = " | " + row["remarks"]
             print(row["attendance_date"], "-", row["status"] + extra)
+    helpers.pause()
+
+
+def monthly_attendance_summary() -> None:
+    helpers.print_line(languages.t("monthly_summary_title"))
+    print(languages.t("monthly_summary_help"))
+    print()
+
+    month_info = helpers.ask_umuganda_month()
+    if month_info is None:
+        helpers.pause()
+        return
+
+    date_text, year, month, month_name = month_info
+
+    rows = database.run_query(
+        """SELECT status, COUNT(*) AS count
+           FROM attendance
+           WHERE YEAR(attendance_date) = %s AND MONTH(attendance_date) = %s
+           GROUP BY status
+           ORDER BY FIELD(status, 'Present', 'Late', 'Excused', 'Absent')""",
+        (year, month),
+        fetch="all",
+    )
+
+    if not rows:
+        helpers.warning(
+            languages.t("monthly_no_data", fallback="No data for {m} {y}.")
+            .replace("{m}", month_name).replace("{y}", str(year))
+        )
+    else:
+        total = 0
+        helpers.print_line(f"{month_name} {year}")
+        for row in rows:
+            status = row["status"]
+            count = int(row["count"])
+            total += count
+            print(f"  {status}: {count}")
+
+        present_count = sum(
+            int(r["count"]) for r in rows if r["status"] in ("Present", "Late")
+        )
+        pct = (present_count / total * 100) if total > 0 else 0
+        print()
+        print(languages.t("monthly_total", fallback="Total: {n}").replace("{n}", str(total)))
+        print(languages.t("monthly_percentage", fallback="Attendance: {pct}%").replace("{pct}", f"{pct:.1f}"))
+
     helpers.pause()
 

@@ -10,6 +10,17 @@ logger = logging.getLogger(__name__)
 SEARCH_HANDLERS: dict[str, Callable[..., None]] = {}
 
 
+def _safe_db_query(sql: str, params: tuple = (), fetch: str = "all") -> Any:
+    try:
+        result = database.run_query(sql, params, fetch=fetch)
+        if result is None:
+            return [] if fetch == "all" else None
+        return result
+    except Exception as e:
+        logger.error(f"Search query failed: {e}")
+        return [] if fetch == "all" else None
+
+
 def register_search_handler(name: str, handler_func: Callable[..., None]) -> None:
     SEARCH_HANDLERS[name] = handler_func
     logger.debug(f"Search handler registered: '{name}'")
@@ -28,6 +39,7 @@ def search_menu() -> None:
         print(languages.t("s3"))
         print(languages.t("s4"))
         print(languages.t("s5"))
+        print(languages.t("s6"))
         print(languages.t("s0"))
         choice = input(languages.t("enter_choice")).strip()
 
@@ -41,6 +53,8 @@ def search_menu() -> None:
             search_attendance_date()
         elif choice == "5":
             search_by_national_id()
+        elif choice == "6":
+            search_by_email()
         elif choice == "0":
             running = False
         else:
@@ -120,6 +134,47 @@ def search_member_by_national_id(national_id: str) -> Optional[dict[str, Any]]:
         fetch="one",
     )
     return row
+
+
+def search_by_email() -> None:
+    helpers.print_line(languages.t("s6_title"))
+    print(languages.t("s6_help"))
+    print()
+
+    while True:
+        email_input = helpers.get_non_empty(languages.t("s6_prompt"))
+        if email_input == "0":
+            break
+
+        is_valid, clean_email = helpers.validate_email(email_input)
+        if not is_valid:
+            helpers.error(clean_email)
+            print()
+            continue
+
+        row = _safe_db_query(
+            """SELECT member_id, national_id, first_name, last_name, phone,
+                      village, cell_name, gender, status, date_registered
+               FROM members WHERE email = %s""",
+            (clean_email,),
+            fetch="one",
+        )
+
+        if not row:
+            helpers.warning(languages.t("s6_not_found"))
+            print()
+            helpers.tip(languages.t("s6_not_found_tip"))
+            print()
+            choice = input(languages.t("search_again")).strip().lower()
+            if choice != "y":
+                break
+        else:
+            helpers.success(languages.t("s6_found"))
+            print()
+            _display_detailed_member(row)
+            break
+
+    helpers.pause()
 
 
 def _display_detailed_member(row: dict[str, Any]) -> None:
@@ -297,3 +352,4 @@ register_search_handler("projects", search_projects)
 register_search_handler("tools", search_tools)
 register_search_handler("attendance", search_attendance_date)
 register_search_handler("national_id", search_by_national_id)
+register_search_handler("email", search_by_email)

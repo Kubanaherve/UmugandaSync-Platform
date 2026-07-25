@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 from datetime import datetime, date, timedelta
 from typing import Optional, Union
 
@@ -249,3 +250,18 @@ def validate_national_id(national_id: Optional[str]) -> tuple[bool, str]:
     if not nid.startswith("1"):
         return False, languages.t("nid_prefix_error", fallback="Valid Rwanda National IDs start with '1'.")
     return True, nid
+
+
+_EMAIL_REGEX = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
+
+
+def validate_email(email: Optional[str]) -> tuple[bool, str]:
+    import languages
+    if email is None or email.strip() == "":
+        return False, languages.t("validate_email_empty", fallback="Email cannot be empty.")
+    email = email.strip()
+    if len(email) > config.MAX_INPUT_LENGTH:
+        return False, "Email is too long."
+    if _EMAIL_REGEX.match(email):
+        return True, email
+    return False, languages.t("validate_email_invalid", fallback="Invalid email format.")
