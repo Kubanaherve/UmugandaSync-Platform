@@ -212,11 +212,7 @@ def borrow_tool():
     # borrow and reduce stock
     helpers.print_line("BORROW TOOL")
     tool_id = helpers.get_positive_int("Tool ID: ")
-    tool = database.run_query(
-        "SELECT * FROM tools WHERE tool_id = %s",
-        (tool_id,),
-        fetch="one"
-    )
+    tool = get_tool_by_id(tool_id)
     if tool == None:
         print("Tool not found.")
         helpers.pause()
