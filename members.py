@@ -163,3 +163,57 @@ def require_member(member_id):
         raise MemberNotFoundError(f"No member found with ID {member_id}.")
     return row
 
+
+def is_duplicate_phone(phone, exclude_member_id=None):
+    """
+    Check whether `phone` is already registered to another member.
+
+    exclude_member_id lets update flows ignore the member's own record.
+    """
+    if exclude_member_id is None:
+        row = database.run_query(
+            "SELECT member_id FROM members WHERE phone = %s",
+            (phone,),
+            fetch="one",
+        )
+    else:
+        row = database.run_query(
+            "SELECT member_id FROM members WHERE phone = %s AND member_id <> %s",
+            (phone, exclude_member_id),
+            fetch="one",
+        )
+    return row is not None
+
+
+def is_duplicate_national_id(national_id, exclude_member_id=None):
+    """
+    Check whether `national_id` is already registered to another member.
+    Skipped automatically when national_id is None (optional field).
+    """
+    if national_id is None:
+        return False
+
+    if exclude_member_id is None:
+        row = database.run_query(
+            "SELECT member_id FROM members WHERE national_id = %s",
+            (national_id,),
+            fetch="one",
+        )
+    else:
+        row = database.run_query(
+            "SELECT member_id FROM members WHERE national_id = %s AND member_id <> %s",
+            (national_id, exclude_member_id),
+            fetch="one",
+        )
+    return row is not None
+
+
+def member_exists(member_id):
+    """
+    Return True/False for whether a member_id exists.
+
+    Preserved for other modules (Cynthia, Marvella, Rosette) that
+    already depend on this exact function name and signature.
+    """
+    return get_member_by_id(member_id) is not None
+
