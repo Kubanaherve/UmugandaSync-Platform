@@ -21,6 +21,17 @@ validate_national_id = helpers.validate_national_id
 validate_email = helpers.validate_email
 
 
+def _safe_db_query(sql: str, params: tuple = (), fetch: str = "all") -> Any:
+    try:
+        result = database.run_query(sql, params, fetch=fetch)
+        if result is None:
+            return [] if fetch == "all" else None
+        return result
+    except Exception as e:
+        logger.error(f"Search query failed: {e}")
+        return [] if fetch == "all" else None
+
+
 def register_search_handler(name: str, handler_func: Callable[..., None]) -> None:
     SEARCH_HANDLERS[name] = handler_func
     logger.debug(f"Search handler registered: '{name}'")
@@ -66,7 +77,7 @@ def search_members() -> None:
     like_text = "%" + text + "%"
 
     if text.isdigit():
-        rows = database.run_query(
+        rows = _safe_db_query(
             """SELECT * FROM members
                WHERE member_id = %s OR phone LIKE %s
                   OR first_name LIKE %s OR last_name LIKE %s""",
@@ -74,7 +85,7 @@ def search_members() -> None:
             fetch="all",
         )
     else:
-        rows = database.run_query(
+        rows = _safe_db_query(
             """SELECT * FROM members
                WHERE phone LIKE %s OR first_name LIKE %s OR last_name LIKE %s""",
             (like_text, like_text, like_text),
@@ -126,7 +137,7 @@ def search_member_by_national_id(national_id: str) -> Optional[dict[str, Any]]:
     is_valid, result = validate_national_id(national_id)
     if not is_valid:
         return None
-    row = database.run_query(
+    row = _safe_db_query(
         """SELECT member_id, national_id, first_name, last_name, phone,
                   village, cell_name, gender, status, date_registered
            FROM members WHERE national_id = %s""",
@@ -152,7 +163,7 @@ def search_by_email() -> None:
             print()
             continue
 
-        row = database.run_query(
+        row = _safe_db_query(
             """SELECT member_id, national_id, first_name, last_name, phone,
                       village, cell_name, gender, status, date_registered
                FROM members WHERE email = %s""",
@@ -192,7 +203,7 @@ def _display_detailed_member(row: dict[str, Any]) -> None:
     print(f"{languages.t('status')}: {row['status']}")
     print(f"{languages.t('date_registered')}: {row.get('date_registered', 'N/A')}")
 
-    stats = database.run_query(
+    stats = _safe_db_query(
         """SELECT COUNT(*) as total_events,
                   SUM(CASE WHEN status = 'Present' THEN 1 ELSE 0 END) as present_count
            FROM attendance WHERE member_id = %s""",
@@ -235,7 +246,7 @@ def _display_member_results(rows: Any) -> None:
 def search_projects() -> None:
     name = helpers.get_non_empty(languages.t("project_name_contains"))
     like_name = "%" + name + "%"
-    rows = database.run_query(
+    rows = _safe_db_query(
         """SELECT project_id, project_name, status, percent_complete, location
            FROM projects WHERE project_name LIKE %s""",
         (like_name,),
@@ -260,7 +271,7 @@ def search_projects() -> None:
 def search_tools() -> None:
     name = helpers.get_non_empty(languages.t("tool_name_contains"))
     like_name = "%" + name + "%"
-    rows = database.run_query(
+    rows = _safe_db_query(
         """SELECT tool_id, tool_name, available_quantity, total_quantity, condition_status
            FROM tools WHERE tool_name LIKE %s""",
         (like_name,),
@@ -289,7 +300,7 @@ def search_attendance_date() -> None:
         helpers.pause()
         return
     the_date = month_info[0]
-    rows = database.run_query(
+    rows = _safe_db_query(
         """SELECT a.attendance_date, a.status, a.remarks, m.first_name, m.last_name
            FROM attendance a
            JOIN members m ON a.member_id = m.member_id
@@ -319,7 +330,7 @@ def quick_search(search_term: str) -> dict[str, list[dict[str, Any]]]:
 
     like_text = f"%{search_term}%"
 
-    members = database.run_query(
+    members = _safe_db_query(
         """SELECT member_id, first_name, last_name, phone, status
            FROM members
            WHERE first_name LIKE %s OR last_name LIKE %s OR phone LIKE %s""",
@@ -327,7 +338,7 @@ def quick_search(search_term: str) -> dict[str, list[dict[str, Any]]]:
         fetch="all",
     )
 
-    projects = database.run_query(
+    projects = _safe_db_query(
         """SELECT project_id, project_name, status, percent_complete
            FROM projects
            WHERE project_name LIKE %s OR location LIKE %s""",
@@ -335,7 +346,7 @@ def quick_search(search_term: str) -> dict[str, list[dict[str, Any]]]:
         fetch="all",
     )
 
-    tools = database.run_query(
+    tools = _safe_db_query(
         """SELECT tool_id, tool_name, available_quantity, condition_status
            FROM tools
            WHERE tool_name LIKE %s""",
