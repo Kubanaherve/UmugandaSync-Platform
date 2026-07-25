@@ -25,6 +25,17 @@ def has_rows(rows):
     return bool(rows)
 
 
+def normalize_status(status):
+    """Return a supported status using consistent capitalization."""
+    if not isinstance(status, str):
+        return None
+
+    cleaned_status = status.strip().title()
+    if cleaned_status in VALID_STATUSES:
+        return cleaned_status
+    return None
+
+
 def attendance_menu():
     running = True
     while running:
