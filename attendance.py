@@ -1,7 +1,8 @@
-# attendance.py
-# Owner: Cynthia
-# record attendance, village roll call, member summary
-# uses members.member_exists from Sonia
+"""Attendance management for Umuganda community sessions.
+
+This module records individual and group attendance, produces reports,
+calculates participation percentages, and summarizes member history.
+"""
 
 import database
 import helpers
