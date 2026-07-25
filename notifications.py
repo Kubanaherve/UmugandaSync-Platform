@@ -1,3 +1,11 @@
+"""
+Notification center for UmugandaSync.
+
+Scans for low-stock tools, overdue projects, broken equipment,
+absent members, and new registrations, then displays structured
+warnings and informational messages.
+"""
+
 import logging
 from datetime import datetime
 from typing import Any, Callable, Optional
@@ -54,7 +62,9 @@ def show_notifications() -> None:
         for tool in broken_tools:
             found = True
             _show_warning(
-                f"Tool condition 'Broken': {tool['tool_name']} (Qty: {tool['total_quantity']})"
+                languages.t("tool_broken_warning").format(
+                    name=tool["tool_name"], qty=tool["total_quantity"]
+                )
             )
 
     now = datetime.now()
@@ -120,7 +130,7 @@ def show_notifications() -> None:
         found = True
         _show_separator()
         _show_info(
-            f"Welcome to {new_members['total']} new member(s) registered in the last 7 days!"
+            languages.t("welcome_new_members").format(n=new_members["total"])
         )
 
     for check in _notification_checks:
@@ -130,7 +140,12 @@ def show_notifications() -> None:
         print("  " + languages.t("no_warnings"))
     else:
         _show_separator()
-        print(f"  Summary: {_warnings_count} warnings, {_info_count} notices")
+        print(
+            "  "
+            + languages.t("notification_summary").format(
+                w=_warnings_count, i=_info_count
+            )
+        )
     print()
 
 
@@ -140,23 +155,23 @@ def _show_separator() -> None:
 
 def _show_success(message: str) -> None:
     timestamp = datetime.now().strftime("%H:%M:%S")
-    helpers.success(f"  ✓ SUCCESS [{timestamp}]: {message}")
+    helpers.success(f"  \u2713 SUCCESS [{timestamp}]: {message}")
 
 
 def _show_error(message: str) -> None:
     timestamp = datetime.now().strftime("%H:%M:%S")
-    helpers.error(f"  ✗ ERROR [{timestamp}]: {message}")
+    helpers.error(f"  \u2717 ERROR [{timestamp}]: {message}")
 
 
 def _show_warning(message: str) -> None:
     global _warnings_count
     _warnings_count += 1
     timestamp = datetime.now().strftime("%H:%M:%S")
-    print(f"  ⚠ WARNING [{timestamp}]: {message}")
+    print(f"  \u26A0 WARNING [{timestamp}]: {message}")
 
 
 def _show_info(message: str) -> None:
     global _info_count
     _info_count += 1
     timestamp = datetime.now().strftime("%H:%M:%S")
-    print(f"  ℹ INFO [{timestamp}]: {message}")
+    print(f"  \u2139 INFO [{timestamp}]: {message}")
