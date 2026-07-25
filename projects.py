@@ -46,3 +46,22 @@ MAX_NAME_LENGTH: int = 100
 MAX_LOCATION_LENGTH: int = 100
 MAX_DESCRIPTION_LENGTH: int = 2000
 DEADLINE_WARN_DAYS: int = 7  # nearing deadline window
+
+
+# ---------------------------------------------------------------------------
+# Exceptions
+# ---------------------------------------------------------------------------
+class ProjectError(Exception):
+    """Base error for project management failures."""
+
+
+class ProjectValidationError(ProjectError):
+    """Raised when project input fails validation."""
+
+
+class ProjectNotFoundError(ProjectError):
+    """Raised when a project ID does not exist."""
+
+
+class ProjectDataError(ProjectError):
+    """Raised when a database operation fails unexpectedly."""
