@@ -800,3 +800,71 @@ def export_project_summary() -> None:
     except (ReportQueryError, ReportExportError) as exc:
         helpers.error(str(exc))
     helpers.pause()
+
+
+def export_attendance_summary() -> None:
+    """Export attendance status breakdown to exports/."""
+    helpers.print_line(
+        languages.t("export_attendance_title", fallback="EXPORT ATTENDANCE SUMMARY")
+    )
+    try:
+        data = build_attendance_summary()
+        filepath = _export_filename("attendance_summary")
+        lines = [
+            "ATTENDANCE SUMMARY",
+            "Generated: " + datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "",
+        ]
+        if not data["by_status"]:
+            lines.append("No attendance data.")
+        else:
+            for row in data["by_status"]:
+                lines.append(f"{row['status']}: {row['total']}")
+        pct = data["avg_present_pct"]
+        lines.append("")
+        lines.append(
+            "Overall present/late rate: "
+            + ("N/A" if pct is None else f"{pct}%")
+        )
+        path = _write_export(filepath, lines)
+        helpers.success(f"Exported to {path}")
+    except (ReportQueryError, ReportExportError) as exc:
+        helpers.error(str(exc))
+    helpers.pause()
+
+
+def export_community_summary_csv() -> None:
+    """
+    Export community KPIs as CSV (Metric, Value) under exports/.
+
+    Uses the same metric builder as the text/community console reports
+    so on-screen and exported numbers stay consistent.
+    """
+    helpers.print_line(
+        languages.t(
+            "export_community_csv_title",
+            fallback="EXPORT COMMUNITY SUMMARY (CSV)",
+        )
+    )
+    try:
+        m = build_community_metrics()
+        filepath = make_export_filename("community_summary", "csv")
+        try:
+            with open(filepath, "w", newline="", encoding="utf-8") as handle:
+                writer = csv.writer(handle)
+                writer.writerow(["Metric", "Value"])
+                writer.writerow(["Total members", m["total_members"]])
+                writer.writerow(["Active members", m["active_members"]])
+                writer.writerow(["Total projects", m["total_projects"]])
+                writer.writerow(["Ongoing projects", m["ongoing_projects"]])
+                writer.writerow(["Completed projects", m["completed_projects"]])
+                writer.writerow(["Completion rate (%)", m["completion_rate"]])
+                writer.writerow(["Tool types", m["tool_types"]])
+                writer.writerow(["Available tool units", m["available_tool_units"]])
+                writer.writerow(["Umuganda dates recorded", m["attendance_days"]])
+        except OSError as exc:
+            raise ReportExportError(f"Could not write {filepath}: {exc}") from exc
+        helpers.success(f"Exported to {filepath}")
+    except (ReportQueryError, ReportExportError) as exc:
+        helpers.error(str(exc))
+    helpers.pause()
