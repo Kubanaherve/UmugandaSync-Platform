@@ -8,7 +8,7 @@ warnings and informational messages.
 
 import logging
 from datetime import datetime
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 import database
 import helpers
@@ -22,6 +22,22 @@ _warnings_count: int = 0
 _info_count: int = 0
 
 _notification_checks: list[Callable[[], None]] = []
+
+
+def _safe_get(sql: str, params: tuple = ()) -> Any:
+    try:
+        return database.run_query(sql, params, fetch="one")
+    except Exception as e:
+        logger.error(f"Notification query failed: {e}")
+        return None
+
+
+def _safe_get_all(sql: str, params: tuple = ()) -> list[dict[str, Any]]:
+    try:
+        return database.run_query(sql, params, fetch="all") or []
+    except Exception as e:
+        logger.error(f"Notification query failed: {e}")
+        return []
 
 
 def register_notification_check(check_func: Callable[[], None]) -> None:
@@ -50,12 +66,8 @@ def show_notifications() -> None:
             msg = languages.t("warn_overdue").replace("{name}", name)
             _show_warning(msg)
 
-    broken_tools: list[dict[str, Any]] = (
-        database.run_query(
-            "SELECT tool_name, total_quantity FROM tools WHERE condition_status='Broken'",
-            fetch="all",
-        )
-        or []
+    broken_tools = _safe_get_all(
+        "SELECT tool_name, total_quantity FROM tools WHERE condition_status='Broken'"
     )
     if broken_tools:
         _show_separator()
@@ -72,10 +84,9 @@ def show_notifications() -> None:
     umuganda_text = umuganda.strftime("%Y-%m-%d")
     month_name = helpers.MONTH_NAMES[now.month]
 
-    umuganda_row = database.run_query(
+    umuganda_row = _safe_get(
         "SELECT COUNT(*) AS total FROM attendance WHERE attendance_date = %s",
         (umuganda_text,),
-        fetch="one",
     )
     if umuganda_row is not None:
         if umuganda_row["total"] == 0:
@@ -86,11 +97,10 @@ def show_notifications() -> None:
                 )
             )
         else:
-            absent_row = database.run_query(
+            absent_row = _safe_get(
                 """SELECT COUNT(*) AS total FROM attendance
                    WHERE attendance_date = %s AND status = 'Absent'""",
                 (umuganda_text,),
-                fetch="one",
             )
             if absent_row is not None and absent_row["total"] > 0:
                 found = True
@@ -110,21 +120,20 @@ def show_notifications() -> None:
                 )
             )
 
-    latest = database.run_query(
-        "SELECT MAX(attendance_date) AS latest_date FROM attendance", fetch="one"
+    latest = _safe_get(
+        "SELECT MAX(attendance_date) AS latest_date FROM attendance"
     )
     if latest is not None and latest["latest_date"] is not None:
         _show_info(languages.t("latest_umuganda").format(date=latest["latest_date"]))
 
-    total_active = database.run_query(
-        "SELECT COUNT(*) AS total FROM members WHERE status='Active'", fetch="one"
+    total_active = _safe_get(
+        "SELECT COUNT(*) AS total FROM members WHERE status='Active'"
     )
     if total_active is not None:
         _show_info(languages.t("active_member_count").format(n=total_active["total"]))
 
-    new_members = database.run_query(
-        "SELECT COUNT(*) AS total FROM members WHERE date_registered >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)",
-        fetch="one",
+    new_members = _safe_get(
+        "SELECT COUNT(*) AS total FROM members WHERE date_registered >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)"
     )
     if new_members and new_members["total"] > 0:
         found = True
