@@ -1239,3 +1239,31 @@ def list_overdue_project_names() -> list[str]:
     """
     rows = fetch_overdue_projects()
     return [str(r["project_name"]) for r in rows]
+
+
+__all__ = [
+    "project_menu",
+    "register_project",
+    "edit_project",
+    "view_all_projects",
+    "view_projects_by_status",
+    "view_overdue_projects",
+    "search_projects",
+    "update_project_progress",
+    "mark_project_completed",
+    "delete_project",
+    "show_deadline_monitor",
+    "show_overdue_alerts",
+    "show_project_report",
+    "build_project_report",
+    "count_overdue_projects",
+    "list_overdue_project_names",
+    "create_project_record",
+    "edit_project_record",
+    "apply_progress",
+    "complete_project",
+    "ProjectError",
+    "ProjectValidationError",
+    "ProjectNotFoundError",
+    "ProjectDataError",
+]
