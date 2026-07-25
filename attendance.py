@@ -145,7 +145,7 @@ def record_attendance():
         return
 
     month_info = helpers.ask_umuganda_month()
-    if month_info == None:
+    if month_info is None:
         helpers.pause()
         return
 
