@@ -1,3 +1,10 @@
+"""
+UmugandaSync - Community Work Management System.
+
+Entry point that orchestrates login, session management,
+dashboard display, and module dispatch.
+"""
+
 import logging
 import sys
 from dataclasses import dataclass
