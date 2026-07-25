@@ -8,14 +8,46 @@ All domain modules import from here instead of using mysql.connector directly.
 import logging
 import mysql.connector
 from mysql.connector import Error
+from mysql.connector.pooling import MySQLConnectionPool
 from typing import Any, Optional
 
 import config
 
 logger = logging.getLogger(__name__)
 
+_pool: Optional[MySQLConnectionPool] = None
+POOL_NAME: str = "umuganda_pool"
+POOL_SIZE: int = 5
+
+
+def _get_pool() -> Optional[MySQLConnectionPool]:
+    global _pool
+    if _pool is None:
+        try:
+            _pool = MySQLConnectionPool(
+                pool_name=POOL_NAME,
+                pool_size=POOL_SIZE,
+                host=config.DB_HOST,
+                user=config.DB_USER,
+                password=config.DB_PASSWORD,
+                database=config.DB_NAME,
+            )
+            logger.info(f"Connection pool '{POOL_NAME}' created (size={POOL_SIZE})")
+        except Error as e:
+            logger.error(f"Failed to create connection pool: {e}")
+            return None
+    return _pool
+
 
 def connect_db() -> Optional[mysql.connector.MySQLConnection]:
+    pool = _get_pool()
+    if pool is not None:
+        try:
+            connection = pool.get_connection()
+            logger.debug("Got connection from pool")
+            return connection
+        except Error as e:
+            logger.warning(f"Pool get_connection failed, fallback to direct: {e}")
     try:
         connection = mysql.connector.connect(
             host=config.DB_HOST,
