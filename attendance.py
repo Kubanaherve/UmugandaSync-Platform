@@ -61,6 +61,19 @@ def get_member_record(member_id):
     )
 
 
+def get_existing_attendance(member_id, attendance_date):
+    """Return an existing member attendance record for a date."""
+    return database.run_query(
+        """
+        SELECT attendance_id, status
+        FROM attendance
+        WHERE member_id = %s AND attendance_date = %s
+        """,
+        (member_id, attendance_date),
+        fetch="one",
+    )
+
+
 def attendance_menu():
     running = True
     while running:
