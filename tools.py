@@ -301,14 +301,11 @@ def return_tool():
         (return_date, borrow_id)
     )
 
-    new_available = borrow["available_quantity"] + borrow["quantity"]
-    if new_available > borrow["total_quantity"]:
-        new_available = borrow["total_quantity"]
-
-    database.run_query(
-        "UPDATE tools SET available_quantity = %s WHERE tool_id = %s",
-        (new_available, borrow["tool_id"])
+    new_available = min(
+        borrow["available_quantity"] + borrow["quantity"],
+        borrow["total_quantity"]
     )
+    adjust_available_quantity(borrow["tool_id"], new_available)
     print("Returned:", borrow["tool_name"], "x", borrow["quantity"])
     print("Available now:", new_available)
     helpers.pause()
