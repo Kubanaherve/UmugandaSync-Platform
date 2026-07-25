@@ -161,17 +161,8 @@ def record_attendance():
         helpers.pause()
         return
 
-    print("Status: 1=Present  2=Absent  3=Excused  4=Late")
-    status_choice = input("Choose status: ").strip()
-    if status_choice == "1":
-        status = "Present"
-    elif status_choice == "2":
-        status = "Absent"
-    elif status_choice == "3":
-        status = "Excused"
-    elif status_choice == "4":
-        status = "Late"
-    else:
+    status = select_attendance_status()
+    if status is None:
         helpers.error("Invalid status.")
         helpers.pause()
         return
