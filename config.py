@@ -1,14 +1,23 @@
 import os
 from typing import Final
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 
 APP_NAME: Final[str] = "UmugandaSync"
-APP_VERSION: Final[str] = "2.1.0"
+APP_VERSION: Final[str] = "2.2.0"
 
 DB_HOST: str = os.getenv("UMUGANDA_DB_HOST", "localhost")
+DB_PORT: int = int(os.getenv("UMUGANDA_DB_PORT", "3306"))
 DB_USER: str = os.getenv("UMUGANDA_DB_USER", "root")
 DB_PASSWORD: str = os.getenv("UMUGANDA_DB_PASSWORD", "")
 DB_NAME: str = os.getenv("UMUGANDA_DB_NAME", "umuganda_sync")
+DB_SSL_CA: str = os.getenv("UMUGANDA_DB_SSL_CA", "")
+DB_SSL_MODE: str = os.getenv("UMUGANDA_DB_SSL_MODE", "")
 
 NATIONAL_ID_LENGTH: Final[int] = 16
 

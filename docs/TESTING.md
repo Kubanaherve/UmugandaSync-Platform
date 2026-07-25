@@ -2,61 +2,80 @@
 
 ## Purpose
 
-Verify platform modules compile and the reports helpers behave correctly
-before presentation or deployment.
+Verify platform modules compile and core logic behaves correctly before
+presentation or deployment.
 
-## Quick checks
-
-```bash
-python3 -m py_compile *.py
-python3 tests.py
-```
-
-## Reports checklist (manual)
-
-With MySQL running and seed data loaded:
-
-1. Login as admin
-2. Open Reports
-3. Run options 1–8; confirm numbers look sane vs dashboard
-4. Run exports 9, 10, 12; confirm files appear in `exports/`
-5. Run KPI snapshot (11)
-6. Exit with 0 and confirm return to main menu
-
-## Automated helper tests
-
-`tests.py` covers shared utilities. Reports-specific pure helpers can be
-checked quickly:
+## Prerequisites
 
 ```bash
-python3 - <<'PY'
-import reports
-assert reports.safe_num(None) == 0
-assert reports.safe_num(5) == 5
-assert reports.safe_row(None, "total") == 0
-assert reports.safe_row({"total": None}, "total") == 0
-assert reports.safe_row({"total": 3}, "total") == 3
-print("reports helpers OK")
-PY
+pip install -r requirements.txt
 ```
 
-## Database smoke test
+## Automated tests (no DB required)
+
+113+ unit tests covering validation, domain logic, helpers, and reports:
 
 ```bash
-python3 -c "import database; assert database.test_connection()"
+python -m pytest tests.py -v
+# or
+python tests.py
 ```
+
+### What is tested
+
+| Module | Coverage |
+|--------|----------|
+| `config.py` | Constants and environment defaults |
+| `database.py` | CRUD helpers, connection logic (mocked) |
+| `members.py` | National ID, phone, email validation |
+| `projects.py` | Validation, deadline labels, status derivation |
+| `reports.py` | Metric builders, safe helpers (mocked) |
+| `helpers.py` | Date formatting, sanitization, phone validation |
+| `languages.py` | Translation resolution, key management |
+| `search.py` | Quick search, national ID search |
+| `login.py` | Admin and member login flows |
+| `csv_export.py` | Export with mocked DB |
+| `menu.py` | Menu rendering |
+
+## Database connection test
+
+```bash
+python -c "import database; assert database.test_connection()"
+```
+
+### Aiven cloud connection
+
+```bash
+# Set your actual credentials (or copy .env.example to .env and edit)
+export UMUGANDA_DB_HOST=your-project.aivencloud.com
+export UMUGANDA_DB_PORT=11798
+export UMUGANDA_DB_USER=avnadmin
+export UMUGANDA_DB_PASSWORD=your_password_here
+export UMUGANDA_DB_NAME=defaultdb
+export UMUGANDA_DB_SSL_MODE=REQUIRED
+
+python -c "import database; assert database.test_connection()"
+```
+
+## Full system smoke test
+
+```bash
+python main.py
+```
+
+1. Login as admin (`admin` / `admin123`)
+2. Check dashboard shows data
+3. Browse members, attendance, projects, tools
+4. Run reports (menu option 5)
+5. Try CSV export (menu option 5 then b)
+6. Logout and test member login (ID=1 phone=0788000001)
 
 ## Failure triage
 
 | Issue | Action |
-| --- | --- |
-| Connection failure | Fix `config.py` / start MySQL |
-| Empty reports | Confirm `database.sql` seed applied |
+|-------|--------|
+| Connection failure | Check `.env` or `config.py` credentials |
+| Empty reports | Run `database.sql` against the target DB |
+| SSL error | Set `UMUGANDA_DB_SSL_MODE=REQUIRED` and `UMUGANDA_DB_SSL_CA=/path/to/ca.pem` |
 | Export OSError | Ensure `exports/` is writable |
-## Presentation smoke
-
-Run options 1 and 13 once before presenting.
-
-## Presentation smoke
-
-Run options 1 and 13 once before presenting.
+| Import errors | Run `pip install -r requirements.txt` |

@@ -221,7 +221,7 @@ def validate_phone(phone: Optional[str]) -> Optional[str]:
     phone = str(phone).strip()
     if len(phone) == config.PHONE_LENGTH and phone.startswith(config.ALLOWED_PHONE_PREFIXES[0]) and phone.isdigit():
         return phone
-    if phone.startswith(config.ALLOWED_PHONE_PREFIXES[1]) and phone.isdigit():
+    if phone.startswith(config.ALLOWED_PHONE_PREFIXES[1]) and phone[1:].isdigit():
         return phone
     return None
 

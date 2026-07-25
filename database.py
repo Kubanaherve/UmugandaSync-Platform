@@ -6,9 +6,9 @@ transaction support, batch operations, and health checks.
 All domain modules import from here instead of using mysql.connector directly.
 
 Usage:
-    row = database.run_query(\"SELECT * FROM members WHERE member_id = %s\", (1,), fetch=\"one\")
-    rows = database.get_many(\"members\", where=\"status = %s\", where_values=(\"Active\",), order_by=\"last_name\")
-    new_id = database.insert_one(\"members\", {\"first_name\": \"John\", \"last_name\": \"Doe\", ...})
+    row = database.run_query("SELECT * FROM members WHERE member_id = %s", (1,), fetch="one")
+    rows = database.get_many("members", where="status = %s", where_values=("Active",), order_by="last_name")
+    new_id = database.insert_one("members", {"first_name": "John", "last_name": "Doe", ...})
     with database.transaction() as cursor:
         cursor.execute(...)
 """
@@ -30,30 +30,15 @@ POOL_NAME: str = "umuganda_pool"
 POOL_SIZE: int = 5
 CONNECT_TIMEOUT: int = 10
 
-import logging
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s"
-)
+def _get_ssl_config() -> dict:
+    ssl_config = {}
+    if config.DB_SSL_CA:
+        ssl_config["ssl_ca"] = config.DB_SSL_CA
+    if config.DB_SSL_MODE:
+        ssl_config["ssl_disabled"] = config.DB_SSL_MODE.upper() != "REQUIRED"
+    return ssl_config
 
-import re
-
-RWANDA_NATIONAL_ID_PATTERN = r"^\d{16}$"
-
-
-def validate_national_id(national_id):
-    """
-    Validate Rwanda National ID.
-    Returns True if valid.
-    """
-    if national_id is None:
-        return False
-
-    return bool(re.fullmatch(RWANDA_NATIONAL_ID_PATTERN, national_id))
-
-if not validate_national_id("1199780123456789"):
-    print("Invalid National ID")
 
 def _get_pool() -> Optional[MySQLConnectionPool]:
     global _pool
@@ -63,10 +48,12 @@ def _get_pool() -> Optional[MySQLConnectionPool]:
                 pool_name=POOL_NAME,
                 pool_size=POOL_SIZE,
                 host=config.DB_HOST,
+                port=config.DB_PORT,
                 user=config.DB_USER,
                 password=config.DB_PASSWORD,
                 database=config.DB_NAME,
                 connect_timeout=CONNECT_TIMEOUT,
+                **_get_ssl_config(),
             )
             logger.info(f"Connection pool '{POOL_NAME}' created (size={POOL_SIZE})")
         except Error as e:
@@ -88,25 +75,27 @@ def connect_db() -> Optional[mysql.connector.MySQLConnection]:
     try:
         connection = mysql.connector.connect(
             host=config.DB_HOST,
+            port=config.DB_PORT,
             user=config.DB_USER,
             password=config.DB_PASSWORD,
             database=config.DB_NAME,
             connect_timeout=CONNECT_TIMEOUT,
+            **_get_ssl_config(),
         )
         return connection
     except Error as e:
         logger.error(f"Database connection failed: {e}")
         print("Could not connect to database.")
         print(f"  Host: {config.DB_HOST}")
+        print(f"  Port: {config.DB_PORT}")
         print(f"  User: {config.DB_USER}")
         print(f"  Database: {config.DB_NAME}")
         print(f"  Error: {e}")
         print()
         print("Checklist:")
-        print("  1. Is MySQL running?  Try: mysql -u root")
-        print("  2. Does the database exist?  Try: mysql -u root -e 'CREATE DATABASE umuganda_sync'")
-        print("  3. Run the schema:  mysql -u root < database.sql")
-        print("  4. Set env vars or update config.py if credentials differ")
+        print("  1. Is MySQL running and reachable?")
+        print("  2. Set env vars or update .env with correct credentials")
+        print("  3. Run: mysql -u root < database.sql")
         return None
 
 
@@ -126,20 +115,6 @@ def close_db(connection: Any, cursor: Any = None) -> None:
 def run_query(
     sql: str, values: Optional[tuple] = None, fetch: Optional[str] = None
 ) -> Any:
-    """
-    Execute a SQL query with optional parameter binding.
-    
-    Args:
-        sql: SQL statement with %s placeholders
-        values: Tuple of parameter values
-        fetch: \"one\" for single row dict, \"all\" for list of dicts, None for INSERT/UPDATE/DELETE
-        
-    Returns:
-        For SELECT: dict (fetch=\"one\") or list of dicts (fetch=\"all\")
-        For INSERT: lastrowid (int)
-        For UPDATE/DELETE: affected row count
-        None on connection or SQL error
-    """
     connection = connect_db()
     if connection is None:
         return None
@@ -166,7 +141,6 @@ def run_query(
     except Error as e:
         logger.error(f"SQL error: {e}")
         sql_preview = sql[:80] + "..." if len(sql) > 80 else sql
-        logging.error("SQL Error: %s", e)
         print(f"Query: {sql_preview}")
         try:
             connection.rollback()
@@ -175,37 +149,24 @@ def run_query(
         close_db(connection, cursor)
         return None
 
+
 def execute_transaction(queries):
-    """
-    Execute multiple SQL statements in one transaction.
-
-    queries = [
-        ("UPDATE ...", values),
-        ("INSERT ...", values)
-    ]
-    """
     connection = connect_db()
-
     if connection is None:
         return False
-
     cursor = None
-
     try:
         cursor = connection.cursor()
-
         for sql, values in queries:
             cursor.execute(sql, values)
-
         connection.commit()
         return True
-
     except Error:
         connection.rollback()
         raise
-
     finally:
         close_db(connection, cursor)
+
 
 def test_connection() -> bool:
     """Quick health check — returns True if database is reachable."""
@@ -220,16 +181,6 @@ def test_connection() -> bool:
 
 @contextmanager
 def transaction() -> Iterator[Any]:
-    """
-    Context manager for atomic transactions.
-    
-    Commits on success, rolls back on exception.
-    
-    Usage:
-        with database.transaction() as cursor:
-            cursor.execute(\"INSERT INTO ...\")
-            cursor.execute(\"UPDATE ...\")
-    """
     connection = connect_db()
     if connection is None:
         yield None
@@ -252,7 +203,6 @@ def transaction() -> Iterator[Any]:
 
 
 def execute_many(sql: str, values_list: list[tuple]) -> Optional[int]:
-    """Execute a batch INSERT/UPDATE with multiple value tuples. Returns affected row count."""
     connection = connect_db()
     if connection is None:
         return None
@@ -277,7 +227,6 @@ def execute_many(sql: str, values_list: list[tuple]) -> Optional[int]:
 
 
 def insert_one(table: str, data: dict[str, Any]) -> Optional[int]:
-    """Insert one row. Returns new record ID (lastrowid)."""
     columns = ", ".join(data.keys())
     placeholders = ", ".join(["%s"] * len(data))
     sql = f"INSERT INTO {table} ({columns}) VALUES ({placeholders})"
@@ -287,7 +236,6 @@ def insert_one(table: str, data: dict[str, Any]) -> Optional[int]:
 def update_one(
     table: str, data: dict[str, Any], where: str, where_values: tuple = ()
 ) -> Optional[int]:
-    """Update rows matching WHERE clause. Returns affected row count."""
     set_clause = ", ".join([f"{k} = %s" for k in data])
     sql = f"UPDATE {table} SET {set_clause} WHERE {where}"
     values = tuple(data.values()) + where_values
@@ -295,7 +243,6 @@ def update_one(
 
 
 def delete_one(table: str, where: str, where_values: tuple = ()) -> Optional[int]:
-    """Delete rows matching WHERE clause. Returns affected row count."""
     sql = f"DELETE FROM {table} WHERE {where}"
     return run_query(sql, where_values, fetch=None)
 
@@ -303,7 +250,6 @@ def delete_one(table: str, where: str, where_values: tuple = ()) -> Optional[int
 def get_one(
     table: str, where: str, where_values: tuple = ()
 ) -> Optional[dict[str, Any]]:
-    """Fetch first row matching WHERE as a dict, or None."""
     sql = f"SELECT * FROM {table} WHERE {where} LIMIT 1"
     return run_query(sql, where_values, fetch="one")
 
@@ -315,7 +261,6 @@ def get_many(
     order_by: str = "",
     limit: Optional[int] = None,
 ) -> list[dict[str, Any]]:
-    """Fetch multiple rows matching WHERE as a list of dicts."""
     sql = f"SELECT * FROM {table} WHERE {where}"
     if order_by:
         sql += f" ORDER BY {order_by}"
@@ -328,7 +273,6 @@ def get_many(
 def count(
     table: str, where: str = "1=1", where_values: tuple = ()
 ) -> int:
-    """Count rows matching WHERE. Returns 0 on error."""
     sql = f"SELECT COUNT(*) AS total FROM {table} WHERE {where}"
     result = run_query(sql, where_values, fetch="one")
     if result is None:
@@ -339,7 +283,6 @@ def count(
 def exists(
     table: str, where: str, where_values: tuple = ()
 ) -> bool:
-    """Check if at least one row exists matching WHERE."""
     sql = f"SELECT 1 FROM {table} WHERE {where} LIMIT 1"
     result = run_query(sql, where_values, fetch="one")
     return result is not None

@@ -29,10 +29,5 @@ exports/*
 # Database credentials (avoid committing passwords)
 config.local.py
 
-# Local helper artifacts
-.final_*
-APPLY_*.sh
-
-# Local helper artifacts
-.final_*
-APPLY_*.sh
+# Runtime artifacts
+members.log
