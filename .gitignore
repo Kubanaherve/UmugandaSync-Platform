@@ -23,7 +23,12 @@ Thumbs.db
 
 # Project specific
 logs/
-exports/
+exports/*
+!exports/.gitkeep
 
 # Database credentials (avoid committing passwords)
 config.local.py
+
+# Local helper artifacts
+.final_*
+APPLY_*.sh
