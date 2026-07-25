@@ -84,9 +84,10 @@ def get_national_id(prompt_text: str) -> Optional[str]:
         text = input(prompt_text).strip()
         if text == "":
             return None
-        if text.isdigit() and len(text) == config.NATIONAL_ID_LENGTH:
-            return text
-        print(languages.t("nid_length_error"))
+        is_valid, msg = validate_national_id(text)
+        if is_valid:
+            return msg
+        print(msg)
 
 
 def get_date(prompt_text: str) -> str:
