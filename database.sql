@@ -39,6 +39,12 @@ CREATE TABLE members (
     status          VARCHAR(10)  NOT NULL DEFAULT 'Active'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE INDEX idx_members_national_id ON members(national_id);
+CREATE INDEX idx_members_phone       ON members(phone);
+CREATE INDEX idx_members_status      ON members(status);
+CREATE INDEX idx_members_village     ON members(village);
+CREATE INDEX idx_members_name        ON members(last_name, first_name);
+
 -- ------------------------------------------------------------
 -- Attendance — one row per member per Umuganda date
 -- ------------------------------------------------------------
@@ -52,6 +58,10 @@ CREATE TABLE attendance (
         ON DELETE CASCADE ON UPDATE CASCADE,
     UNIQUE (member_id, attendance_date)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE INDEX idx_attendance_date         ON attendance(attendance_date);
+CREATE INDEX idx_attendance_status       ON attendance(status);
+CREATE INDEX idx_attendance_member_date  ON attendance(member_id, attendance_date);
 
 -- ------------------------------------------------------------
 -- Projects — community work initiatives
@@ -70,6 +80,10 @@ CREATE TABLE projects (
         ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE INDEX idx_projects_status   ON projects(status);
+CREATE INDEX idx_projects_leader   ON projects(leader_member_id);
+CREATE INDEX idx_projects_end_date ON projects(expected_end_date);
+
 -- ------------------------------------------------------------
 -- Tools — shared community inventory
 -- ------------------------------------------------------------
@@ -82,6 +96,9 @@ CREATE TABLE tools (
     condition_status    VARCHAR(20)  NOT NULL DEFAULT 'Good',
     low_stock_limit     INT          NOT NULL DEFAULT 2
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE INDEX idx_tools_condition ON tools(condition_status);
+CREATE INDEX idx_tools_category  ON tools(category);
 
 -- ------------------------------------------------------------
 -- Tool borrows — borrow / return history
@@ -99,6 +116,10 @@ CREATE TABLE tool_borrows (
     FOREIGN KEY (member_id) REFERENCES members(member_id)
         ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE INDEX idx_borrows_status ON tool_borrows(status);
+CREATE INDEX idx_borrows_tool   ON tool_borrows(tool_id);
+CREATE INDEX idx_borrows_member ON tool_borrows(member_id);
 
 -- ============================================================
 -- SAMPLE DATA
