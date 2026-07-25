@@ -6,7 +6,6 @@ Use t(key) to translate, set_language(code) to switch.
 """
 
 import logging
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 

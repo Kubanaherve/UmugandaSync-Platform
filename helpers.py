@@ -92,7 +92,7 @@ def get_national_id(prompt_text: str) -> Optional[str]:
         text = input(prompt_text).strip()
         if text == "":
             return None
-        is_valid, msg = validate_national_id(text)
+        is_valid, msg = validate_rwanda_national_id(text)
         if is_valid:
             return msg
         print(msg)
@@ -258,9 +258,16 @@ def validate_national_id(national_id: Optional[str]) -> tuple[bool, str]:
         return False, languages.t("nid_length_error", fallback="National ID must be exactly 16 digits.")
     if not nid.isdigit():
         return False, languages.t("nid_digit_error", fallback="National ID must contain only digits.")
-    if not nid.startswith(config.NATIONAL_ID_PREFIX):
-        return False, languages.t("nid_prefix_error", fallback="Valid Rwanda National IDs start with '1'.")
     return True, nid
+
+
+def validate_rwanda_national_id(national_id: Optional[str]) -> tuple[bool, str]:
+    is_valid, result = validate_national_id(national_id)
+    if not is_valid:
+        return False, result
+    if not result.startswith(config.NATIONAL_ID_PREFIX):
+        return False, "Rwanda National ID must start with 1."
+    return True, result
 
 
 _EMAIL_REGEX = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")

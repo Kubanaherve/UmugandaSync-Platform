@@ -105,7 +105,7 @@ def search_by_national_id() -> None:
         if national_id == "0":
             return
 
-        is_valid, msg_or_nid = validate_national_id(national_id)
+        is_valid, msg_or_nid = helpers.validate_rwanda_national_id(national_id)
         if not is_valid:
             helpers.error(msg_or_nid)
             print()
@@ -134,7 +134,7 @@ def search_by_national_id() -> None:
 
 
 def search_member_by_national_id(national_id: str) -> Optional[dict[str, Any]]:
-    is_valid, result = validate_national_id(national_id)
+    is_valid, result = helpers.validate_rwanda_national_id(national_id)
     if not is_valid:
         return None
     row = _safe_db_query(
