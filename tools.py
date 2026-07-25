@@ -23,6 +23,14 @@ def ask_condition_status(default=None):
     return CONDITION_MAP.get(cond_choice, default if default else "Good")
 
 
+def adjust_available_quantity(tool_id, new_available):
+    """Persist a new available_quantity value for a tool."""
+    return database.run_query(
+        "UPDATE tools SET available_quantity = %s WHERE tool_id = %s",
+        (new_available, tool_id)
+    )
+
+
 def format_tool_line(row):
     """Build a single display line for a tool row, flagging low stock."""
     flag = " << LOW STOCK" if row["available_quantity"] <= row["low_stock_limit"] else ""
@@ -250,10 +258,7 @@ def borrow_tool():
         return
 
     new_available = tool["available_quantity"] - quantity
-    database.run_query(
-        "UPDATE tools SET available_quantity = %s WHERE tool_id = %s",
-        (new_available, tool_id)
-    )
+    adjust_available_quantity(tool_id, new_available)
     print("Borrowed successfully. Remaining available:", new_available)
 
     if new_available <= tool["low_stock_limit"]:
