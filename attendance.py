@@ -364,6 +364,42 @@ def member_attendance_percentage():
     helpers.pause()
 
 
+def get_monthly_summary(attendance_date):
+    """Return attendance totals for a selected Umuganda month."""
+    row = database.run_query(
+        """
+        SELECT
+            COUNT(*) AS total,
+            SUM(CASE WHEN status = 'Present' THEN 1 ELSE 0 END) AS present,
+            SUM(CASE WHEN status = 'Late' THEN 1 ELSE 0 END) AS late,
+            SUM(CASE WHEN status = 'Absent' THEN 1 ELSE 0 END) AS absent,
+            SUM(CASE WHEN status = 'Excused' THEN 1 ELSE 0 END) AS excused
+        FROM attendance
+        WHERE attendance_date = %s
+        """,
+        (attendance_date,),
+        fetch="one",
+    )
+
+    if row is None:
+        row = {}
+
+    summary = {
+        "total": int(row.get("total") or 0),
+        "present": int(row.get("present") or 0),
+        "late": int(row.get("late") or 0),
+        "absent": int(row.get("absent") or 0),
+        "excused": int(row.get("excused") or 0),
+    }
+    attended = summary["present"] + summary["late"]
+    summary["percentage"] = (
+        round((attended / summary["total"]) * 100, 1)
+        if summary["total"]
+        else 0.0
+    )
+    return summary
+
+
 def attendance_analytics():
     helpers.print_line("ATTENDANCE ANALYTICS")
 
