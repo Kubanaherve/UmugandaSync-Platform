@@ -20,6 +20,11 @@ STATUS_CHOICES = {
 }
 
 
+def has_rows(rows):
+    """Return True when a database result contains at least one row."""
+    return bool(rows)
+
+
 def attendance_menu():
     running = True
     while running:
