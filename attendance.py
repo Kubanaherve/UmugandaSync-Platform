@@ -168,7 +168,7 @@ def record_attendance():
         return
 
     activity = helpers.choose_umuganda_remark()
-    remarks = "Umuganda " + month_name + " " + str(year) + " — " + activity
+    remarks = build_session_remark(month_name, year, activity)
 
     result = database.run_query(
         """
