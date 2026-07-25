@@ -10,6 +10,16 @@ import members
 import languages
 
 
+VALID_STATUSES = ("Present", "Absent", "Excused", "Late")
+ATTENDED_STATUSES = ("Present", "Late")
+STATUS_CHOICES = {
+    "1": "Present",
+    "2": "Absent",
+    "3": "Excused",
+    "4": "Late",
+}
+
+
 def attendance_menu():
     running = True
     while running:
