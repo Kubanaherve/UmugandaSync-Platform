@@ -56,3 +56,7 @@ python3 -c "import database; assert database.test_connection()"
 ## Presentation smoke
 
 Run options 1 and 13 once before presenting.
+
+## Presentation smoke
+
+Run options 1 and 13 once before presenting.
