@@ -720,3 +720,83 @@ def kpi_snapshot_report() -> None:
     print("Low-stock tool types:", kpi["low_stock_items"])
     print("Open tool borrows:", kpi["open_borrows"])
     helpers.pause()
+
+
+# =============================================================================
+# File exports
+# =============================================================================
+def export_community_summary() -> None:
+    """Export community KPIs to a timestamped text file under exports/."""
+    helpers.print_line(
+        languages.t("export_community_title", fallback="EXPORT COMMUNITY SUMMARY")
+    )
+    try:
+        m = build_community_metrics()
+        filepath = _export_filename("community_summary")
+        lines = [
+            "COMMUNITY SUMMARY",
+            "Generated: " + datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "",
+            f"Total members: {m['total_members']}",
+            f"Active members: {m['active_members']}",
+            f"Total projects: {m['total_projects']}",
+            f"Ongoing projects: {m['ongoing_projects']}",
+            f"Completed projects: {m['completed_projects']}",
+            f"Completion rate: {m['completion_rate']}%",
+            f"Tool types: {m['tool_types']}",
+            f"Available tool units: {m['available_tool_units']}",
+            f"Umuganda dates recorded: {m['attendance_days']}",
+        ]
+        path = _write_export(filepath, lines)
+        helpers.success(f"Exported to {path}")
+    except (ReportQueryError, ReportExportError) as exc:
+        helpers.error(str(exc))
+    helpers.pause()
+
+
+def export_project_summary() -> None:
+    """Export project status and incomplete/overdue lists to exports/."""
+    helpers.print_line(
+        languages.t("export_project_title", fallback="EXPORT PROJECT SUMMARY")
+    )
+    try:
+        data = build_project_summary()
+        filepath = _export_filename("project_summary")
+        lines = [
+            "PROJECT SUMMARY",
+            "Generated: " + datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "",
+        ]
+        if not data["by_status"]:
+            lines.append("No projects.")
+        else:
+            for row in data["by_status"]:
+                lines.append(
+                    f"{row['status']}: {row['total']} projects | "
+                    f"avg progress: {safe_num(row['avg_progress'])}%"
+                )
+        lines.append("")
+        lines.append("--- Incomplete projects ---")
+        if not data["incomplete"]:
+            lines.append("None")
+        else:
+            for row in data["incomplete"]:
+                lines.append(
+                    f"{row['project_name']} | {row['status']} | "
+                    f"{row['percent_complete']}% | due {row['expected_end_date']}"
+                )
+        lines.append("")
+        lines.append("--- Overdue projects ---")
+        if not data["overdue"]:
+            lines.append("None")
+        else:
+            for row in data["overdue"]:
+                lines.append(
+                    f"{row['project_name']} | {row['status']} | "
+                    f"{row['percent_complete']}% | due {row['expected_end_date']}"
+                )
+        path = _write_export(filepath, lines)
+        helpers.success(f"Exported to {path}")
+    except (ReportQueryError, ReportExportError) as exc:
+        helpers.error(str(exc))
+    helpers.pause()
