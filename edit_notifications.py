@@ -1,0 +1,135 @@
+import json
+
+with open("notifications.py", "r") as f:
+    lines = f.readlines()
+
+target_content = "".join(lines[12:])
+
+replacement = """def show_notifications():
+    global _warnings_count, _info_count
+    _warnings_count = 0
+    _info_count = 0
+    helpers.print_line(languages.t("notifications"))
+    found = False
+
+    low_count = tools.count_low_stock_tools()
+    if low_count > 0:
+        found = True
+        msg = languages.t("warn_low_stock").replace("{n}", str(low_count))
+        _show_warning(msg)
+
+    overdue_names = projects.list_overdue_project_names()
+    if overdue_names:
+        if found: _show_separator()
+        for name in overdue_names:
+            found = True
+            msg = languages.t("warn_overdue").replace("{name}", name)
+            _show_warning(msg)
+
+    broken_tools = database.run_query("SELECT tool_name, total_quantity FROM tools WHERE condition_status='Broken'", fetch="all")
+    if broken_tools:
+        if found: _show_separator()
+        for tool in broken_tools:
+            found = True
+            _show_warning(f"Tool condition 'Broken': {tool['tool_name']} (Qty: {tool['total_quantity']})")
+
+    if found: _show_separator()
+    now = datetime.now()
+    umuganda = helpers.get_last_saturday(now.year, now.month)
+    umuganda_text = umuganda.strftime("%Y-%m-%d")
+    month_name = helpers.MONTH_NAMES[now.month]
+
+    umuganda_row = database.run_query(
+        "SELECT COUNT(*) AS total FROM attendance WHERE attendance_date = %s",
+        (umuganda_text,),
+        fetch="one"
+    )
+    if umuganda_row is not None:
+        if umuganda_row["total"] == 0:
+            found = True
+            _show_info(
+                languages.t("notice_no_attendance_month").format(
+                    date=umuganda_text, month=month_name
+                )
+            )
+        else:
+            absent_row = database.run_query(
+                "SELECT COUNT(*) AS total FROM attendance WHERE attendance_date = %s AND status = 'Absent'",
+                (umuganda_text,),
+                fetch="one"
+            )
+            if absent_row is not None and absent_row["total"] > 0:
+                found = True
+                _show_warning(
+                    languages.t("notice_absents").format(
+                        n=absent_row["total"], date=umuganda_text
+                    )
+                )
+            present_count = umuganda_row["total"] - (absent_row["total"] if absent_row else 0)
+            _show_info(
+                languages.t("attendance_summary_notice").format(
+                    total=umuganda_row["total"],
+                    present=present_count,
+                    date=umuganda_text
+                )
+            )
+
+    latest = database.run_query(
+        "SELECT MAX(attendance_date) AS latest_date FROM attendance",
+        fetch="one"
+    )
+    if latest is not None and latest["latest_date"] is not None:
+        _show_info(
+            languages.t("latest_umuganda").format(date=latest["latest_date"])
+        )
+
+    total_active = database.run_query(
+        "SELECT COUNT(*) AS total FROM members WHERE status='Active'",
+        fetch="one"
+    )
+    if total_active is not None:
+        _show_info(
+            languages.t("active_member_count").format(n=total_active["total"])
+        )
+
+    new_members = database.run_query("SELECT COUNT(*) AS total FROM members WHERE date_registered >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)", fetch="one")
+    if new_members and new_members["total"] > 0:
+        if found: _show_separator()
+        found = True
+        _show_info(f"Welcome to {new_members['total']} new member(s) registered in the last 7 days!")
+
+    if not found:
+        print("  " + languages.t("no_warnings"))
+    else:
+        _show_separator()
+        print(f"  Summary: {_warnings_count} warnings, {_info_count} notices")
+    print()
+
+def _show_separator():
+    print("  " + "-" * 40)
+
+def _show_success(message):
+    timestamp = datetime.now().strftime("%H:%M:%S")
+    helpers.success(f"  ✓ SUCCESS [{timestamp}]: " + message)
+
+def _show_error(message):
+    timestamp = datetime.now().strftime("%H:%M:%S")
+    helpers.error(f"  ✗ ERROR [{timestamp}]: " + message)
+
+def _show_warning(message):
+    global _warnings_count
+    _warnings_count += 1
+    timestamp = datetime.now().strftime("%H:%M:%S")
+    print(f"  ⚠ WARNING [{timestamp}]: " + message)
+
+def _show_info(message):
+    global _info_count
+    _info_count += 1
+    timestamp = datetime.now().strftime("%H:%M:%S")
+    print(f"  ℹ INFO [{timestamp}]: " + message)
+"""
+
+with open("notifications.py", "w") as f:
+    f.writelines(lines[:12])
+    f.write("_warnings_count = 0\n_info_count = 0\n\n")
+    f.write(replacement)
