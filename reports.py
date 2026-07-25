@@ -983,3 +983,8 @@ __all__ = [
     "ReportQueryError",
     "ReportExportError",
 ]
+
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    reports_menu()
