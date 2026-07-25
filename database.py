@@ -4,6 +4,13 @@ Database access layer for UmugandaSync.
 Provides connection management, query execution, CRUD helpers,
 transaction support, batch operations, and health checks.
 All domain modules import from here instead of using mysql.connector directly.
+
+Usage:
+    row = database.run_query(\"SELECT * FROM members WHERE member_id = %s\", (1,), fetch=\"one\")
+    rows = database.get_many(\"members\", where=\"status = %s\", where_values=(\"Active\",), order_by=\"last_name\")
+    new_id = database.insert_one(\"members\", {\"first_name\": \"John\", \"last_name\": \"Doe\", ...})
+    with database.transaction() as cursor:
+        cursor.execute(...)
 """
 
 import logging
@@ -21,6 +28,7 @@ logger = logging.getLogger(__name__)
 _pool: Optional[MySQLConnectionPool] = None
 POOL_NAME: str = "umuganda_pool"
 POOL_SIZE: int = 5
+CONNECT_TIMEOUT: int = 10
 
 
 def _get_pool() -> Optional[MySQLConnectionPool]:
@@ -28,13 +36,13 @@ def _get_pool() -> Optional[MySQLConnectionPool]:
     if _pool is None:
         try:
             _pool = MySQLConnectionPool(
-                pool_name=POOL_N
-AME,
+                pool_name=POOL_NAME,
                 pool_size=POOL_SIZE,
                 host=config.DB_HOST,
                 user=config.DB_USER,
                 password=config.DB_PASSWORD,
                 database=config.DB_NAME,
+                connect_timeout=CONNECT_TIMEOUT,
             )
             logger.info(f"Connection pool '{POOL_NAME}' created (size={POOL_SIZE})")
         except Error as e:
@@ -58,13 +66,22 @@ def connect_db() -> Optional[mysql.connector.MySQLConnection]:
             user=config.DB_USER,
             password=config.DB_PASSWORD,
             database=config.DB_NAME,
+            connect_timeout=CONNECT_TIMEOUT,
         )
         return connection
     except Error as e:
         logger.error(f"Database connection failed: {e}")
         print("Could not connect to database.")
-        print(e)
-        print("Check if MySQL is running and password in config.py")
+        print(f"  Host: {config.DB_HOST}")
+        print(f"  User: {config.DB_USER}")
+        print(f"  Database: {config.DB_NAME}")
+        print(f"  Error: {e}")
+        print()
+        print("Checklist:")
+        print("  1. Is MySQL running?  Try: mysql -u root")
+        print("  2. Does the database exist?  Try: mysql -u root -e 'CREATE DATABASE umuganda_sync'")
+        print("  3. Run the schema:  mysql -u root < database.sql")
+        print("  4. Set env vars or update config.py if credentials differ")
         return None
 
 
@@ -108,8 +125,9 @@ def run_query(
         return last_id
     except Error as e:
         logger.error(f"SQL error: {e}")
-        print("SQL error:")
-        print(e)
+        sql_preview = sql[:80] + "..." if len(sql) > 80 else sql
+        print(f"SQL error: {e}")
+        print(f"Query: {sql_preview}")
         try:
             connection.rollback()
         except Error:
