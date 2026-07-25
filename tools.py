@@ -65,24 +65,21 @@ def tools_menu():
         print(languages.t("t0"))
         choice = input(languages.t("enter_choice")).strip()
 
-        if choice == "1":
-            add_tool()
-        elif choice == "2":
-            view_tools()
-        elif choice == "3":
-            update_tool()
-        elif choice == "4":
-            delete_tool()
-        elif choice == "5":
-            borrow_tool()
-        elif choice == "6":
-            return_tool()
-        elif choice == "7":
-            low_stock_warning(show_pause=True)
-        elif choice == "8":
-            view_borrow_history()
-        elif choice == "0":
+        actions = {
+            "1": add_tool,
+            "2": view_tools,
+            "3": update_tool,
+            "4": delete_tool,
+            "5": borrow_tool,
+            "6": return_tool,
+            "7": lambda: low_stock_warning(show_pause=True),
+            "8": view_borrow_history,
+        }
+
+        if choice == "0":
             running = False
+        elif choice in actions:
+            actions[choice]()
         else:
             print("Invalid choice.")
 
