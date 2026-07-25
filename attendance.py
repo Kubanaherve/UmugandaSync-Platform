@@ -186,14 +186,28 @@ def record_attendance():
 
 
 def print_attendance_rows(rows):
-    if rows == None or len(rows) == 0:
+    """Display attendance rows while handling missing values safely."""
+    if not has_rows(rows):
         print("No attendance records found.")
         return
+
     for row in rows:
-        print(row["attendance_id"], "|", row["attendance_date"], "|",
-              row["first_name"], row["last_name"],
-              "(ID", str(row["member_id"]) + ")", "|",
-              row["status"], "|", row["remarks"])
+        remarks = row.get("remarks") or "No remarks"
+        first_name = row.get("first_name") or "Unknown"
+        last_name = row.get("last_name") or "Member"
+        print(
+            row.get("attendance_id"),
+            "|",
+            row.get("attendance_date"),
+            "|",
+            first_name,
+            last_name,
+            f"(ID {row.get('member_id')})",
+            "|",
+            row.get("status") or "Unknown",
+            "|",
+            remarks,
+        )
 
 
 def view_all_attendance():
