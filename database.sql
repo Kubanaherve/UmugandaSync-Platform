@@ -21,6 +21,14 @@ CREATE TABLE admins (
     password    VARCHAR(255) NOT NULL,
     full_name   VARCHAR(100) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+ 
+national_id CHAR(16) NOT NULL UNIQUE,
+CHECK (national_id REGEXP '^[0-9]{16}$')
+
+FOREIGN KEY (member_id)
+REFERENCES members(member_id)
+ON UPDATE CASCADE
+ON DELETE CASCADE
 
 -- ------------------------------------------------------------
 -- Members — community participants
