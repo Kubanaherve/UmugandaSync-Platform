@@ -888,3 +888,35 @@ def build_project_report() -> dict[str, Any]:
         "nearing_deadline_count": nearing,
         "completion_rate": completion_rate,
     }
+
+
+def show_project_report() -> None:
+    """Print a full project management report to the console."""
+    helpers.print_line(
+        languages.t("project_report_title", fallback="PROJECT REPORT")
+    )
+    report = build_project_report()
+
+    print(languages.t("total") + ":", report["total"])
+    print(
+        languages.t("project_completion_rate"),
+        f"{report['completion_rate']:.1f}%",
+    )
+    print(
+        languages.t("avg_progress", fallback="Average progress:"),
+        f"{report['average_completion']:.1f}%",
+    )
+    print(
+        languages.t("overdue_count_label", fallback="Overdue projects:"),
+        report["overdue_count"],
+    )
+    print(
+        languages.t("due_soon_count_label", fallback="Nearing deadline:"),
+        report["nearing_deadline_count"],
+    )
+    print()
+    print(languages.t("status_breakdown", fallback="Status breakdown:"))
+    for status in VALID_STATUSES:
+        count = report["by_status"].get(status, 0)
+        print(f"  {status.ljust(12)}: {count}")
+    print()
