@@ -488,3 +488,55 @@ def member_report() -> None:
         for row in data["by_village"]:
             print(f"{row['village']}: {row['total']}")
     helpers.pause()
+
+
+def attendance_summary() -> None:
+    """Print attendance status breakdown and present/late rate."""
+    helpers.print_line(
+        languages.t("attendance_summary_title", fallback="ATTENDANCE SUMMARY")
+    )
+    try:
+        data = build_attendance_summary()
+    except ReportQueryError as exc:
+        helpers.error(str(exc))
+        helpers.pause()
+        return
+
+    if not data["by_status"]:
+        print("No attendance data.")
+    else:
+        for row in data["by_status"]:
+            print(f"{row['status']}: {row['total']}")
+
+    pct = data["avg_present_pct"]
+    if pct is None:
+        print("Overall present/late rate: N/A (no attendance data yet)")
+    else:
+        print("Overall present/late rate:", pct, "%")
+    helpers.pause()
+
+
+def most_active_members() -> None:
+    """Print top members by present/late counts."""
+    helpers.print_line(
+        languages.t("most_active_title", fallback="MOST ACTIVE MEMBERS")
+    )
+    try:
+        rows = build_most_active_members()
+    except ReportQueryError as exc:
+        helpers.error(str(exc))
+        helpers.pause()
+        return
+
+    if not rows:
+        print("No data.")
+    else:
+        for row in rows:
+            print(
+                row["first_name"],
+                row["last_name"],
+                f"({row['village']}) -",
+                row["active_count"],
+                "present/late",
+            )
+    helpers.pause()
