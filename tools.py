@@ -187,11 +187,7 @@ def delete_tool():
     # delete tool
     helpers.print_line("DELETE TOOL")
     tool_id = helpers.get_positive_int("Tool ID: ")
-    row = database.run_query(
-        "SELECT * FROM tools WHERE tool_id = %s",
-        (tool_id,),
-        fetch="one"
-    )
+    row = get_tool_by_id(tool_id)
     if row == None:
         print("Tool not found.")
         helpers.pause()
