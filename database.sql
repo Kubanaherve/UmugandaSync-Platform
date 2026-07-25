@@ -143,6 +143,34 @@ CREATE INDEX idx_borrows_status ON tool_borrows(status);
 CREATE INDEX idx_borrows_tool   ON tool_borrows(tool_id);
 CREATE INDEX idx_borrows_member ON tool_borrows(member_id);
 
+-- ------------------------------------------------------------
+-- Notifications — system alerts and messages
+-- ------------------------------------------------------------
+CREATE TABLE notifications (
+    notification_id   INT AUTO_INCREMENT PRIMARY KEY,
+    notification_type VARCHAR(50)  NOT NULL,
+    message           TEXT         NOT NULL,
+    related_id        INT          NULL,
+    severity          VARCHAR(20)  NOT NULL DEFAULT 'info',
+    is_read           TINYINT(1)   NOT NULL DEFAULT 0,
+    created_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_notification_severity CHECK (
+        severity IN ('info', 'warning', 'error', 'success')
+    ),
+    CONSTRAINT chk_notification_type CHECK (
+        notification_type IN (
+            'low_stock', 'overdue_project', 'broken_tool',
+            'absent_member', 'new_member', 'attendance_reminder',
+            'system'
+        )
+    )
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE INDEX idx_notifications_type    ON notifications(notification_type);
+CREATE INDEX idx_notifications_read    ON notifications(is_read);
+CREATE INDEX idx_notifications_severity ON notifications(severity);
+CREATE INDEX idx_notifications_created  ON notifications(created_at);
+
 -- ============================================================
 -- SAMPLE DATA
 -- ============================================================
@@ -208,5 +236,11 @@ INSERT INTO tool_borrows (tool_id, member_id, quantity, borrow_date, return_date
 (1, 1, 2, '2026-05-30', NULL,           'Borrowed'),
 (2, 3, 1, '2026-04-25', '2026-05-30',   'Returned'),
 (4, 7, 1, '2026-06-27', NULL,           'Borrowed');
+
+INSERT INTO notifications (notification_type, message, related_id, severity) VALUES
+('low_stock', 'Spade is low stock (only 2 available)', 2, 'warning'),
+('broken_tool', 'Pickaxe is broken and needs replacement', 5, 'warning'),
+('overdue_project', 'School Fence Repair is overdue (due: 2026-04-01)', 4, 'warning'),
+('new_member', 'Alice Iradukunda registered as a new member', 8, 'info');
 
 SELECT 'UmugandaSync database created successfully!' AS message;
