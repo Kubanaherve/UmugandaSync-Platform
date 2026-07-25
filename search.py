@@ -1,3 +1,11 @@
+"""
+Universal search module for UmugandaSync.
+
+Provides search across members, projects, tools, and attendance
+with a pluggable handler registry. Also exports validate_national_id
+from helpers for backward compatibility with tests.
+"""
+
 import logging
 from typing import Any, Callable, Optional
 
@@ -8,6 +16,9 @@ import languages
 logger = logging.getLogger(__name__)
 
 SEARCH_HANDLERS: dict[str, Callable[..., None]] = {}
+
+validate_national_id = helpers.validate_national_id
+validate_email = helpers.validate_email
 
 
 def register_search_handler(name: str, handler_func: Callable[..., None]) -> None:
@@ -28,6 +39,7 @@ def search_menu() -> None:
         print(languages.t("s3"))
         print(languages.t("s4"))
         print(languages.t("s5"))
+        print(languages.t("search_by_email"))
         print(languages.t("s0"))
         choice = input(languages.t("enter_choice")).strip()
 
@@ -41,6 +53,8 @@ def search_menu() -> None:
             search_attendance_date()
         elif choice == "5":
             search_by_national_id()
+        elif choice == "6":
+            search_by_email()
         elif choice == "0":
             running = False
         else:
@@ -80,7 +94,7 @@ def search_by_national_id() -> None:
         if national_id == "0":
             return
 
-        is_valid, msg_or_nid = helpers.validate_national_id(national_id)
+        is_valid, msg_or_nid = validate_national_id(national_id)
         if not is_valid:
             helpers.error(msg_or_nid)
             print()
@@ -109,7 +123,7 @@ def search_by_national_id() -> None:
 
 
 def search_member_by_national_id(national_id: str) -> Optional[dict[str, Any]]:
-    is_valid, result = helpers.validate_national_id(national_id)
+    is_valid, result = validate_national_id(national_id)
     if not is_valid:
         return None
     row = database.run_query(
@@ -122,12 +136,56 @@ def search_member_by_national_id(national_id: str) -> Optional[dict[str, Any]]:
     return row
 
 
+def search_by_email() -> None:
+    helpers.print_line(languages.t("s6_title"))
+    print(languages.t("s6_help"))
+    print()
+
+    while True:
+        email_input = helpers.get_non_empty(languages.t("s6_prompt"))
+        if email_input == "0":
+            break
+
+        is_valid, clean_email = validate_email(email_input)
+        if not is_valid:
+            helpers.error(clean_email)
+            print()
+            continue
+
+        row = database.run_query(
+            """SELECT member_id, national_id, first_name, last_name, phone,
+                      village, cell_name, gender, status, date_registered
+               FROM members WHERE email = %s""",
+            (clean_email,),
+            fetch="one",
+        )
+
+        if not row:
+            helpers.warning(languages.t("s6_not_found"))
+            print()
+            helpers.tip(languages.t("s6_not_found_tip"))
+            print()
+            choice = input(languages.t("search_again")).strip().lower()
+            if choice != "y":
+                break
+        else:
+            helpers.success(languages.t("s6_found"))
+            print()
+            _display_detailed_member(row)
+            break
+
+    helpers.pause()
+
+
 def _display_detailed_member(row: dict[str, Any]) -> None:
     helpers.print_line(languages.t("member_details"))
     print(f"{languages.t('first_name')}: {row['first_name']}")
     print(f"{languages.t('last_name')}: {row['last_name']}")
     print(f"{languages.t('national_id')}: {row['national_id']}")
     print(f"{languages.t('phone')}: {row['phone']}")
+    email_val = row.get("email", "")
+    if email_val:
+        print(f"{languages.t('email')}: {email_val}")
     print(f"{languages.t('gender')}: {row.get('gender', 'N/A')}")
     print(f"{languages.t('village')}: {row['village']}")
     print(f"{languages.t('cell_name')}: {row.get('cell_name', 'N/A')}")
