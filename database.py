@@ -1,8 +1,8 @@
 """
 Database access layer for UmugandaSync.
 
-Provides connection management, query execution, and health checks.
-All domain modules import from here instead of using mysql.connector directly.
+Provides connection management, query execution, CRUD helpers,
+and health checks. All domain modules import from here.
 """
 
 import logging
@@ -122,6 +122,50 @@ def test_connection() -> bool:
     print("SUCCESS: connected to MySQL database", config.DB_NAME)
     close_db(connection)
     return True
+
+
+def insert_one(table: str, data: dict[str, Any]) -> Optional[int]:
+    columns = ", ".join(data.keys())
+    placeholders = ", ".join(["%s"] * len(data))
+    sql = f"INSERT INTO {table} ({columns}) VALUES ({placeholders})"
+    return run_query(sql, tuple(data.values()), fetch=None)
+
+
+def update_one(
+    table: str, data: dict[str, Any], where: str, where_values: tuple = ()
+) -> Optional[int]:
+    set_clause = ", ".join([f"{k} = %s" for k in data])
+    sql = f"UPDATE {table} SET {set_clause} WHERE {where}"
+    values = tuple(data.values()) + where_values
+    return run_query(sql, values, fetch=None)
+
+
+def delete_one(table: str, where: str, where_values: tuple = ()) -> Optional[int]:
+    sql = f"DELETE FROM {table} WHERE {where}"
+    return run_query(sql, where_values, fetch=None)
+
+
+def get_one(
+    table: str, where: str, where_values: tuple = ()
+) -> Optional[dict[str, Any]]:
+    sql = f"SELECT * FROM {table} WHERE {where} LIMIT 1"
+    return run_query(sql, where_values, fetch="one")
+
+
+def get_many(
+    table: str,
+    where: str = "1=1",
+    where_values: tuple = (),
+    order_by: str = "",
+    limit: Optional[int] = None,
+) -> list[dict[str, Any]]:
+    sql = f"SELECT * FROM {table} WHERE {where}"
+    if order_by:
+        sql += f" ORDER BY {order_by}"
+    if limit is not None:
+        sql += f" LIMIT {limit}"
+    result = run_query(sql, where_values, fetch="all")
+    return result if result is not None else []
 
 
 if __name__ == "__main__":
