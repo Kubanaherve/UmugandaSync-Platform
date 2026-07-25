@@ -36,7 +36,9 @@ CREATE TABLE members (
     cell_name       VARCHAR(50)  NOT NULL,
     gender          VARCHAR(10)  NOT NULL,
     date_registered DATE         NOT NULL,
-    status          VARCHAR(10)  NOT NULL DEFAULT 'Active'
+    status          VARCHAR(10)  NOT NULL DEFAULT 'Active',
+    CONSTRAINT chk_member_status CHECK (status IN ('Active', 'Inactive')),
+    CONSTRAINT chk_member_gender CHECK (gender IN ('Male', 'Female', 'Other'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE INDEX idx_members_national_id ON members(national_id);
@@ -56,7 +58,10 @@ CREATE TABLE attendance (
     remarks         VARCHAR(255) NULL,
     FOREIGN KEY (member_id) REFERENCES members(member_id)
         ON DELETE CASCADE ON UPDATE CASCADE,
-    UNIQUE (member_id, attendance_date)
+    UNIQUE (member_id, attendance_date),
+    CONSTRAINT chk_attendance_status CHECK (
+        status IN ('Present', 'Late', 'Absent', 'Excused')
+    )
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE INDEX idx_attendance_date         ON attendance(attendance_date);
@@ -77,7 +82,13 @@ CREATE TABLE projects (
     status              VARCHAR(20)  NOT NULL DEFAULT 'Pending',
     percent_complete    INT          NOT NULL DEFAULT 0,
     FOREIGN KEY (leader_member_id) REFERENCES members(member_id)
-        ON DELETE SET NULL ON UPDATE CASCADE
+        ON DELETE SET NULL ON UPDATE CASCADE,
+    CONSTRAINT chk_project_status CHECK (
+        status IN ('Pending', 'Ongoing', 'Completed', 'Cancelled')
+    ),
+    CONSTRAINT chk_project_percent CHECK (
+        percent_complete BETWEEN 0 AND 100
+    )
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE INDEX idx_projects_status   ON projects(status);
@@ -94,7 +105,14 @@ CREATE TABLE tools (
     total_quantity      INT          NOT NULL,
     available_quantity  INT          NOT NULL,
     condition_status    VARCHAR(20)  NOT NULL DEFAULT 'Good',
-    low_stock_limit     INT          NOT NULL DEFAULT 2
+    low_stock_limit     INT          NOT NULL DEFAULT 2,
+    CONSTRAINT chk_tool_quantities CHECK (
+        available_quantity BETWEEN 0 AND total_quantity
+    ),
+    CONSTRAINT chk_tool_condition CHECK (
+        condition_status IN ('Good', 'Needs Repair', 'Broken')
+    ),
+    CONSTRAINT chk_tool_low_stock CHECK (low_stock_limit >= 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE INDEX idx_tools_condition ON tools(condition_status);
@@ -114,7 +132,11 @@ CREATE TABLE tool_borrows (
     FOREIGN KEY (tool_id)   REFERENCES tools(tool_id)
         ON DELETE CASCADE ON UPDATE CASCADE,
     FOREIGN KEY (member_id) REFERENCES members(member_id)
-        ON DELETE CASCADE ON UPDATE CASCADE
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT chk_borrow_status CHECK (
+        status IN ('Borrowed', 'Returned')
+    ),
+    CONSTRAINT chk_borrow_quantity CHECK (quantity > 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE INDEX idx_borrows_status ON tool_borrows(status);
