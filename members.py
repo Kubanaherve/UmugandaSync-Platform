@@ -134,3 +134,32 @@ def validate_email(email):
         raise ValidationError("Invalid email address format.")
     return cleaned
 
+
+# --------------------------------------------------------------------------
+# Reusable data-access helpers
+# --------------------------------------------------------------------------
+def get_member_by_id(member_id):
+    """
+    Fetch a single member row by ID.
+
+    Returns the row (dict-like) or None if not found.
+    """
+    return database.run_query(
+        "SELECT * FROM members WHERE member_id = %s",
+        (member_id,),
+        fetch="one",
+    )
+
+
+def require_member(member_id):
+    """
+    Fetch a member by ID, raising MemberNotFoundError if missing.
+
+    Use this instead of get_member_by_id() when the caller cannot
+    proceed without a valid member.
+    """
+    row = get_member_by_id(member_id)
+    if row is None:
+        raise MemberNotFoundError(f"No member found with ID {member_id}.")
+    return row
+
