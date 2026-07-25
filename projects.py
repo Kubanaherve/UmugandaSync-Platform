@@ -1201,3 +1201,41 @@ def project_menu() -> None:
             running = False
         else:
             helpers.error(languages.t("invalid_choice"))
+
+
+# ---------------------------------------------------------------------------
+# Public APIs for notifications / dashboard (backward compatible)
+# ---------------------------------------------------------------------------
+def count_overdue_projects() -> int:
+    """
+    Count active overdue projects.
+
+    Returns
+    -------
+    int
+    """
+    today = helpers.today_string()
+    row = _query(
+        """
+        SELECT COUNT(*) AS total FROM projects
+        WHERE status IN ('Pending', 'Ongoing')
+          AND expected_end_date < %s
+        """,
+        (today,),
+        fetch="one",
+    )
+    if row is None:
+        return 0
+    return int(row["total"])
+
+
+def list_overdue_project_names() -> list[str]:
+    """
+    Return overdue project names for the notification center.
+
+    Returns
+    -------
+    list[str]
+    """
+    rows = fetch_overdue_projects()
+    return [str(r["project_name"]) for r in rows]
