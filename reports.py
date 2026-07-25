@@ -8,6 +8,7 @@ for the village leader, plus file exports for select reports.
 
 """
 
+import csv
 import database
 import helpers
 import languages
@@ -17,6 +18,10 @@ def safe_num(value):
     if value is None:
         return 0
     return value
+
+def make_export_filename(prefix, extension="txt"):
+    # builds a timestamped filename so repeated exports don't overwrite each other
+    return prefix + "_" + datetime.now().strftime("%Y%m%d_%H%M%S") + "." + extension
 
 def reports_menu():
     running = True
@@ -32,6 +37,7 @@ def reports_menu():
         print(languages.t("r8"))
         print("9. Export Community Summary to File")
         print("10. Export Project Summary to File")
+        print("11. Export Community Summary to CSV")
         print(languages.t("r0"))
         choice = input(languages.t("enter_choice")).strip()
 
@@ -55,6 +61,8 @@ def reports_menu():
             export_community_summary()
         elif choice == "10":
             export_project_summary()
+        elif choice == "11":
+            export_community_summary_csv()
         elif choice == "0":
             print("Returning to main menu...")
             running = False
@@ -130,8 +138,7 @@ def export_community_summary():
     )
 
 
-    from datetime import datetime
-    filename = "community_summary_" + datetime.now().strftime("%Y%m%d_%H%M%S") + ".txt"
+    filename = make_export_filename("community_summary")
 
     with open(filename, "w") as f:
         f.write("COMMUNITY SUMMARY\n")
@@ -147,6 +154,48 @@ def export_community_summary():
     print("Exported to", filename)
     helpers.pause()
 
+def export_community_summary_csv():
+    # same community summary numbers, but as a CSV file (one metric per row)
+    total_members = database.run_query(
+        "SELECT COUNT(*) AS total FROM members", fetch="one"
+    )
+    active_members = database.run_query(
+        "SELECT COUNT(*) AS total FROM members WHERE status='Active'",
+        fetch="one"
+    )
+    total_projects = database.run_query(
+        "SELECT COUNT(*) AS total FROM projects", fetch="one"
+    )
+    ongoing = database.run_query(
+        "SELECT COUNT(*) AS total FROM projects WHERE status='Ongoing'",
+        fetch="one"
+    )
+    total_tools = database.run_query(
+        "SELECT COUNT(*) AS total FROM tools", fetch="one"
+    )
+    available_tools = database.run_query(
+        "SELECT SUM(available_quantity) AS total FROM tools", fetch="one"
+    )
+    attendance_days = database.run_query(
+        "SELECT COUNT(DISTINCT attendance_date) AS total FROM attendance",
+        fetch="one"
+    )
+
+    filename = make_export_filename("community_summary", "csv")
+
+    with open(filename, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["Metric", "Value"])
+        writer.writerow(["Total members", safe_num(total_members["total"])])
+        writer.writerow(["Active members", safe_num(active_members["total"])])
+        writer.writerow(["Total projects", safe_num(total_projects["total"])])
+        writer.writerow(["Ongoing projects", safe_num(ongoing["total"])])
+        writer.writerow(["Tool types", safe_num(total_tools["total"])])
+        writer.writerow(["Available tool units", safe_num(available_tools["total"])])
+        writer.writerow(["Umuganda dates recorded", safe_num(attendance_days["total"])])
+
+    print("Exported to", filename)
+    helpers.pause()
 
 def member_report():
     # members by status and village
