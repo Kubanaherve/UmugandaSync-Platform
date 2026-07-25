@@ -180,7 +180,7 @@ def record_attendance():
         """,
         (member_id, attendance_date, status, remarks)
     )
-    if result != None:
+    if result is not None:
         helpers.success("Attendance recorded for " + attendance_date)
         print("  Remark:", remarks)
     else:
@@ -439,7 +439,7 @@ def attendance_analytics():
         """,
         fetch="all"
     )
-    if top_rows == None or len(top_rows) == 0:
+    if not has_rows(top_rows):
         print("No data.")
     else:
         for row in top_rows:
@@ -458,7 +458,7 @@ def attendance_analytics():
         """,
         fetch="all"
     )
-    if poor_rows == None or len(poor_rows) == 0:
+    if not has_rows(poor_rows):
         print("No poor attendance found.")
     else:
         for row in poor_rows:
@@ -478,7 +478,7 @@ def attendance_analytics():
         """,
         fetch="all"
     )
-    if perfect_rows == None or len(perfect_rows) == 0:
+    if not has_rows(perfect_rows):
         print("No perfect attendance list yet.")
     else:
         for row in perfect_rows:
@@ -497,7 +497,7 @@ def attendance_analytics():
         """,
         fetch="all"
     )
-    if consecutive_like == None or len(consecutive_like) == 0:
+    if not has_rows(consecutive_like):
         print("No members with 3 or more absences.")
     else:
         for row in consecutive_like:
@@ -539,7 +539,7 @@ def list_villages():
         """,
         fetch="all"
     )
-    if rows == None or len(rows) == 0:
+    if not has_rows(rows):
         print("No active members / villages found.")
         return []
     print("Villages with active members:")
@@ -583,7 +583,7 @@ def record_village_or_all_attendance():
     year = month_info[1]
 
     activity = helpers.choose_umuganda_remark()
-    session_remark = "Umuganda " + month_name + " " + str(year) + " — " + activity
+    session_remark = build_session_remark(month_name, year, activity)
 
     print()
     print("Who should be marked for this Umuganda?")
@@ -624,7 +624,7 @@ def record_village_or_all_attendance():
         helpers.pause()
         return
 
-    if member_rows == None or len(member_rows) == 0:
+    if not has_rows(member_rows):
         helpers.error("No active members found.")
         helpers.pause()
         return
@@ -634,7 +634,7 @@ def record_village_or_all_attendance():
     print("Activity:", session_remark)
     print("Recording for:", scope_label)
     print("People:", len(member_rows))
-    if helpers.confirm("Start marking now") == False:
+    if not helpers.confirm("Start marking now"):
         print("Cancelled.")
         helpers.pause()
         return
@@ -642,35 +642,31 @@ def record_village_or_all_attendance():
     saved = 0
     skipped_existing = 0
     skipped_manual = 0
+    existing_member_ids = get_existing_member_ids(
+        attendance_date,
+        member_rows,
+    )
 
     for row in member_rows:
-        existing = database.run_query(
-            """
-            SELECT attendance_id, status FROM attendance
-            WHERE member_id = %s AND attendance_date = %s
-            """,
-            (row["member_id"], attendance_date),
-            fetch="one"
+        if row["member_id"] in existing_member_ids:
+            print(
+                "Already saved:",
+                row["first_name"],
+                row["last_name"],
+            )
+            skipped_existing += 1
+            continue
+
+        label = (
+            f"{row['first_name']} {row['last_name']} | "
+            f"ID {row['member_id']} | {row['village']}"
         )
-        if existing != None:
-            print("Already saved:", row["first_name"], row["last_name"], "->", existing["status"])
-            skipped_existing = skipped_existing + 1
-            continue
-
-        label = row["first_name"] + " " + row["last_name"] + " | ID " + str(row["member_id"]) + " | " + row["village"]
         status = ask_attendance_status(label)
-        if status == None:
-            skipped_manual = skipped_manual + 1
+        if status is None:
+            skipped_manual += 1
             continue
 
-        # personal remark keeps activity + status note
-        person_remark = session_remark
-        if status == "Late":
-            person_remark = session_remark + " | Arrived late"
-        elif status == "Excused":
-            person_remark = session_remark + " | Excused absence"
-        elif status == "Absent":
-            person_remark = session_remark + " | Absent"
+        person_remark = build_person_remark(session_remark, status)
 
         result = database.run_query(
             """
@@ -679,8 +675,8 @@ def record_village_or_all_attendance():
             """,
             (row["member_id"], attendance_date, status, person_remark)
         )
-        if result != None:
-            saved = saved + 1
+        if result is not None:
+            saved += 1
             print("Saved:", row["first_name"], "as", status)
         else:
             print("Failed for", row["first_name"])
@@ -722,11 +718,11 @@ def member_lifetime_summary(member=None):
     # if member already logged in we pass the member dict
     helpers.print_line("MEMBER PARTICIPATION SUMMARY (LIFETIME)")
 
-    if member == None:
+    if member is None:
         print("Find by Member ID or phone.")
         print()
         member = find_member_for_summary()
-        if member == None:
+        if member is None:
             print("Member not found.")
             helpers.pause()
             return
@@ -803,7 +799,7 @@ def member_lifetime_summary(member=None):
         (member["village"],),
         fetch="one"
     )
-    if village_avg != None and village_avg["village_pct"] != None:
+    if village_avg is not None and village_avg["village_pct"] is not None:
         print("Village average:", village_avg["village_pct"], "%")
         if percentage >= float(village_avg["village_pct"]):
             print("You are at or above village average.")
@@ -823,7 +819,7 @@ def member_lifetime_summary(member=None):
     )
     for row in history:
         extra = ""
-        if row["remarks"] != None:
+        if row["remarks"] is not None:
             extra = " | " + row["remarks"]
         print(row["attendance_date"], "-", row["status"] + extra)
 
@@ -838,7 +834,7 @@ def member_lifetime_summary(member=None):
         (member_id,),
         fetch="all"
     )
-    if absents == None or len(absents) == 0:
+    if not has_rows(absents):
         print("No absences.")
     else:
         for row in absents:
@@ -858,12 +854,12 @@ def member_own_history(member):
         (member["member_id"],),
         fetch="all"
     )
-    if rows == None or len(rows) == 0:
+    if not has_rows(rows):
         print("No attendance records yet.")
     else:
         for row in rows:
             extra = ""
-            if row["remarks"] != None:
+            if row["remarks"] is not None:
                 extra = " | " + row["remarks"]
             print(row["attendance_date"], "-", row["status"] + extra)
     helpers.pause()
