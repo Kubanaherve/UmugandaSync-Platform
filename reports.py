@@ -399,3 +399,36 @@ def build_inventory_summary() -> dict[str, Any]:
         "low_stock": low,
         "borrowed": borrowed,
     }
+
+
+def build_attendance_by_village() -> list[dict[str, Any]]:
+    """Attendance aggregates grouped by village."""
+    return _query(
+        """
+        SELECT m.village,
+               COUNT(*) AS records,
+               SUM(CASE WHEN a.status IN ('Present','Late') THEN 1 ELSE 0 END)
+                 AS present_like,
+               SUM(CASE WHEN a.status = 'Absent' THEN 1 ELSE 0 END) AS absents
+        FROM attendance a
+        JOIN members m ON a.member_id = m.member_id
+        GROUP BY m.village
+        ORDER BY present_like DESC
+        """,
+        fetch="all",
+    ) or []
+
+
+def build_kpi_snapshot() -> dict[str, Any]:
+    """
+    Compact KPI snapshot combining completion rate and low-stock pressure.
+    """
+    community = build_community_metrics()
+    inventory = build_inventory_summary()
+    return {
+        "completion_rate": community["completion_rate"],
+        "ongoing_projects": community["ongoing_projects"],
+        "low_stock_items": len(inventory["low_stock"]),
+        "open_borrows": len(inventory["borrowed"]),
+        "active_members": community["active_members"],
+    }
