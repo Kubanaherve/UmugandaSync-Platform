@@ -384,3 +384,85 @@ def _insert_member(national_id, first_name, last_name, phone, email,
         raise MemberError("Database insert failed for new member.")
     return new_id
 
+
+# --------------------------------------------------------------------------
+# Read
+# --------------------------------------------------------------------------
+def view_members():
+    """Display all members in a simple tabular text listing."""
+    helpers.print_line("ALL MEMBERS")
+    rows = database.run_query("SELECT * FROM members ORDER BY member_id", fetch="all")
+
+    if not rows:
+        print("No members found.")
+    else:
+        for row in rows:
+            print(row["member_id"], "|", row["first_name"], row["last_name"], "|",
+                  row["phone"], "|", row["village"], "/", row["cell_name"], "|",
+                  row["gender"], "|", row["status"])
+        print("Total members:", len(rows))
+    helpers.pause()
+
+
+def search_member():
+    """Interactive search by Member ID, Name, or Phone."""
+    helpers.print_line("SEARCH MEMBER")
+    print("1. By Member ID")
+    print("2. By Name")
+    print("3. By Phone")
+    choice = input("Enter choice: ").strip()
+
+    try:
+        rows = _run_search(choice)
+    except ValidationError as exc:
+        print("Error:", exc)
+        helpers.pause()
+        return
+
+    if rows is None:
+        print("Invalid choice.")
+    elif len(rows) == 0:
+        print("No member found.")
+    else:
+        for row in rows:
+            print("ID:", row["member_id"], "| Name:", row["first_name"], row["last_name"],
+                  "| Phone:", row["phone"], "| Village:", row["village"],
+                  "| Status:", row["status"])
+    helpers.pause()
+
+
+def _run_search(choice):
+    """
+    Execute the actual DB query for search_member() based on menu
+    choice. Split out so the search logic is unit-testable and
+    reusable without going through input() prompts.
+    """
+    if choice == "1":
+        member_id = helpers.get_positive_int("Member ID: ")
+        return database.run_query(
+            "SELECT * FROM members WHERE member_id = %s",
+            (member_id,),
+            fetch="all",
+        )
+    elif choice == "2":
+        name = helpers.get_non_empty("Name (first or last): ")
+        like_name = "%" + name + "%"
+        return database.run_query(
+            """
+            SELECT * FROM members
+            WHERE first_name LIKE %s OR last_name LIKE %s
+            ORDER BY first_name
+            """,
+            (like_name, like_name),
+            fetch="all",
+        )
+    elif choice == "3":
+        phone_raw = helpers.get_non_empty("Phone: ")
+        phone = validate_phone(phone_raw)
+        return database.run_query(
+            "SELECT * FROM members WHERE phone = %s",
+            (phone,),
+            fetch="all",
+        )
+    return None
+
