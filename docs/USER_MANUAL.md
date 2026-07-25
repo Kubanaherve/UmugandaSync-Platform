@@ -40,3 +40,7 @@ Open **Reports** from the main menu after admin login.
 ## Presentation tip
 
 Demo options 1, 6, 11, and 13 for a complete leader workflow.
+
+## Presentation tip
+
+Demo options 1, 6, 11, and 13 for a complete leader workflow.
