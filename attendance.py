@@ -226,6 +226,22 @@ def view_all_attendance():
     helpers.pause()
 
 
+def get_daily_attendance(attendance_date):
+    """Return all attendance records for one Umuganda date."""
+    return database.run_query(
+        """
+        SELECT a.attendance_id, a.attendance_date, a.status, a.remarks,
+               a.member_id, m.first_name, m.last_name
+        FROM attendance a
+        JOIN members m ON a.member_id = m.member_id
+        WHERE a.attendance_date = %s
+        ORDER BY m.first_name, m.last_name
+        """,
+        (attendance_date,),
+        fetch="all",
+    )
+
+
 def view_by_date():
     helpers.print_line("ATTENDANCE BY UMUGANDA MONTH")
     helpers.tip("Choose month to view that month's last-Saturday Umuganda.")
