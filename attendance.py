@@ -250,19 +250,8 @@ def view_by_date():
         helpers.pause()
         return
 
-    the_date = month_info[0]
-    rows = database.run_query(
-        """
-        SELECT a.attendance_id, a.attendance_date, a.status, a.remarks,
-               a.member_id, m.first_name, m.last_name
-        FROM attendance a
-        JOIN members m ON a.member_id = m.member_id
-        WHERE a.attendance_date = %s
-        ORDER BY m.first_name
-        """,
-        (the_date,),
-        fetch="all"
-    )
+    attendance_date = month_info[0]
+    rows = get_daily_attendance(attendance_date)
     print_attendance_rows(rows)
     helpers.pause()
 
