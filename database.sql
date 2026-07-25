@@ -72,9 +72,20 @@ CREATE TABLE attendance (
     )
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE INDEX idx_attendance_date         ON attendance(attendance_date);
-CREATE INDEX idx_attendance_status       ON attendance(status);
-CREATE INDEX idx_attendance_member_date  ON attendance(member_id, attendance_date);
+CREATE INDEX idx_attendance_date
+ON attendance(attendance_date);
+
+CREATE INDEX idx_attendance_member_date
+ON attendance(member_id, attendance_date);
+
+CREATE INDEX idx_projects_status
+ON projects(status);
+
+CREATE INDEX idx_tools_available
+ON tools(available_quantity);
+
+CREATE INDEX idx_notifications_member
+ON notifications(member_id);
 
 -- ------------------------------------------------------------
 -- Projects — community work initiatives
@@ -178,6 +189,17 @@ CREATE INDEX idx_notifications_type    ON notifications(notification_type);
 CREATE INDEX idx_notifications_read    ON notifications(is_read);
 CREATE INDEX idx_notifications_severity ON notifications(severity);
 CREATE INDEX idx_notifications_created  ON notifications(created_at);
+
+START TRANSACTION;
+
+UPDATE tools
+SET available_quantity =
+available_quantity - 1
+WHERE tool_id=5;
+
+INSERT INTO tool_borrows(...);
+
+COMMIT;
 
 -- ============================================================
 -- SAMPLE DATA
