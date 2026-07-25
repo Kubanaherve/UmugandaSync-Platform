@@ -1118,3 +1118,11 @@ def delete_project() -> None:
     except ProjectDataError:
         helpers.error(languages.t("project_delete_failed"))
     helpers.pause()
+
+
+def project_reports_menu() -> None:
+    """Interactive: show project reports and optional alert summary."""
+    show_project_report()
+    print()
+    show_overdue_alerts()
+    helpers.pause()
