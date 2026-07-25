@@ -256,6 +256,22 @@ def view_by_date():
     helpers.pause()
 
 
+def get_member_history(member_id):
+    """Return one member's complete attendance history."""
+    return database.run_query(
+        """
+        SELECT a.attendance_id, a.attendance_date, a.status, a.remarks,
+               a.member_id, m.first_name, m.last_name
+        FROM attendance a
+        JOIN members m ON a.member_id = m.member_id
+        WHERE a.member_id = %s
+        ORDER BY a.attendance_date DESC, a.attendance_id DESC
+        """,
+        (member_id,),
+        fetch="all",
+    )
+
+
 def view_by_member():
     helpers.print_line("ATTENDANCE BY MEMBER")
     member_id = helpers.get_positive_int("Member ID: ")
