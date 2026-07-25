@@ -30,6 +30,30 @@ POOL_NAME: str = "umuganda_pool"
 POOL_SIZE: int = 5
 CONNECT_TIMEOUT: int = 10
 
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
+
+import re
+
+RWANDA_NATIONAL_ID_PATTERN = r"^\d{16}$"
+
+
+def validate_national_id(national_id):
+    """
+    Validate Rwanda National ID.
+    Returns True if valid.
+    """
+    if national_id is None:
+        return False
+
+    return bool(re.fullmatch(RWANDA_NATIONAL_ID_PATTERN, national_id))
+
+if not validate_national_id("1199780123456789"):
+    print("Invalid National ID")
 
 def _get_pool() -> Optional[MySQLConnectionPool]:
     global _pool
@@ -142,7 +166,7 @@ def run_query(
     except Error as e:
         logger.error(f"SQL error: {e}")
         sql_preview = sql[:80] + "..." if len(sql) > 80 else sql
-        print(f"SQL error: {e}")
+        logging.error("SQL Error: %s", e)
         print(f"Query: {sql_preview}")
         try:
             connection.rollback()
@@ -151,6 +175,37 @@ def run_query(
         close_db(connection, cursor)
         return None
 
+def execute_transaction(queries):
+    """
+    Execute multiple SQL statements in one transaction.
+
+    queries = [
+        ("UPDATE ...", values),
+        ("INSERT ...", values)
+    ]
+    """
+    connection = connect_db()
+
+    if connection is None:
+        return False
+
+    cursor = None
+
+    try:
+        cursor = connection.cursor()
+
+        for sql, values in queries:
+            cursor.execute(sql, values)
+
+        connection.commit()
+        return True
+
+    except Error:
+        connection.rollback()
+        raise
+
+    finally:
+        close_db(connection, cursor)
 
 def test_connection() -> bool:
     """Quick health check — returns True if database is reachable."""
