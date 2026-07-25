@@ -2,14 +2,17 @@
 Database access layer for UmugandaSync.
 
 Provides connection management, query execution, CRUD helpers,
-and health checks. All domain modules import from here.
+transaction support, batch operations, and health checks.
+All domain modules import from here instead of using mysql.connector directly.
 """
 
 import logging
+from contextlib import contextmanager
+from typing import Any, Iterator, Optional
+
 import mysql.connector
 from mysql.connector import Error
 from mysql.connector.pooling import MySQLConnectionPool
-from typing import Any, Optional
 
 import config
 
@@ -122,6 +125,53 @@ def test_connection() -> bool:
     print("SUCCESS: connected to MySQL database", config.DB_NAME)
     close_db(connection)
     return True
+
+
+@contextmanager
+def transaction() -> Iterator[Any]:
+    connection = connect_db()
+    if connection is None:
+        yield None
+        return
+    cursor = None
+    try:
+        cursor = connection.cursor(dictionary=True)
+        yield cursor
+        connection.commit()
+    except Error as e:
+        logger.error(f"Transaction error: {e}")
+        print("Transaction error:", e)
+        try:
+            connection.rollback()
+        except Error:
+            pass
+        raise
+    finally:
+        close_db(connection, cursor)
+
+
+def execute_many(sql: str, values_list: list[tuple]) -> Optional[int]:
+    connection = connect_db()
+    if connection is None:
+        return None
+    cursor = None
+    try:
+        cursor = connection.cursor()
+        cursor.executemany(sql, values_list)
+        connection.commit()
+        affected = cursor.rowcount
+        logger.debug(f"execute_many: {affected} rows affected")
+        return affected
+    except Error as e:
+        logger.error(f"Batch SQL error: {e}")
+        print("Batch SQL error:", e)
+        try:
+            connection.rollback()
+        except Error:
+            pass
+        return None
+    finally:
+        close_db(connection, cursor)
 
 
 def insert_one(table: str, data: dict[str, Any]) -> Optional[int]:
