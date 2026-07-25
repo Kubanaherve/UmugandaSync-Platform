@@ -868,3 +868,92 @@ def export_community_summary_csv() -> None:
     except (ReportQueryError, ReportExportError) as exc:
         helpers.error(str(exc))
     helpers.pause()
+
+
+# =============================================================================
+# Menu
+# =============================================================================
+def reports_menu() -> None:
+    """
+    Interactive reports menu for village leaders.
+
+    Options cover community, members, attendance, projects, inventory,
+    KPI snapshot, and file exports (TXT + CSV).
+    """
+    running = True
+    while running:
+        helpers.print_line(languages.t("reports_menu"))
+        print(languages.t("r1", fallback="1. Community summary"))
+        print(languages.t("r2", fallback="2. Member report"))
+        print(languages.t("r3", fallback="3. Attendance summary"))
+        print(languages.t("r4", fallback="4. Most active members"))
+        print(languages.t("r5", fallback="5. Poor attendance"))
+        print(languages.t("r6", fallback="6. Project summary"))
+        print(languages.t("r7", fallback="7. Inventory summary"))
+        print(languages.t("r8", fallback="8. Attendance by village"))
+        print(
+            languages.t(
+                "r9",
+                fallback="9. Export community summary to file",
+            )
+        )
+        print(
+            languages.t(
+                "r10",
+                fallback="10. Export project summary to file",
+            )
+        )
+        print("11. " + languages.t("kpi_snapshot_title", fallback="KPI snapshot"))
+        print(
+            "12. "
+            + languages.t(
+                "export_attendance_title",
+                fallback="Export attendance summary to file",
+            )
+        )
+        print(
+            "13. "
+            + languages.t(
+                "export_community_csv_title",
+                fallback="Export community summary to CSV",
+            )
+        )
+        print(languages.t("r0", fallback="0. Back"))
+        choice = input(languages.t("enter_choice")).strip()
+
+        if choice == "1":
+            community_summary()
+        elif choice == "2":
+            member_report()
+        elif choice == "3":
+            attendance_summary()
+        elif choice == "4":
+            most_active_members()
+        elif choice == "5":
+            poor_attendance_members()
+        elif choice == "6":
+            project_summary()
+        elif choice == "7":
+            inventory_summary()
+        elif choice == "8":
+            attendance_by_village()
+        elif choice == "9":
+            export_community_summary()
+        elif choice == "10":
+            export_project_summary()
+        elif choice == "11":
+            kpi_snapshot_report()
+        elif choice == "12":
+            export_attendance_summary()
+        elif choice == "13":
+            export_community_summary_csv()
+        elif choice == "0":
+            print(
+                languages.t(
+                    "returning_main_menu",
+                    fallback="Returning to main menu...",
+                )
+            )
+            running = False
+        else:
+            helpers.error(languages.t("invalid_choice", fallback="Invalid choice."))
