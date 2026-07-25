@@ -275,18 +275,12 @@ def get_member_history(member_id):
 def view_by_member():
     helpers.print_line("ATTENDANCE BY MEMBER")
     member_id = helpers.get_positive_int("Member ID: ")
-    rows = database.run_query(
-        """
-        SELECT a.attendance_id, a.attendance_date, a.status, a.remarks,
-               a.member_id, m.first_name, m.last_name
-        FROM attendance a
-        JOIN members m ON a.member_id = m.member_id
-        WHERE a.member_id = %s
-        ORDER BY a.attendance_date DESC
-        """,
-        (member_id,),
-        fetch="all"
-    )
+    if get_member_record(member_id) is None:
+        helpers.error("Member not found.")
+        helpers.pause()
+        return
+
+    rows = get_member_history(member_id)
     print_attendance_rows(rows)
     helpers.pause()
 
