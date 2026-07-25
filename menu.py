@@ -1,3 +1,9 @@
+"""
+Dynamic menu rendering for UmugandaSync.
+
+Provides a reusable menu builder with i18n support.
+"""
+
 import logging
 from typing import Optional
 
