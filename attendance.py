@@ -138,7 +138,8 @@ def record_attendance():
     helpers.tip("You only choose the month. Date is auto-set to last Saturday.")
 
     member_id = helpers.get_positive_int("Member ID: ")
-    if members.member_exists(member_id) == False:
+    member = get_member_record(member_id)
+    if member is None:
         helpers.error("Member not found.")
         helpers.pause()
         return
