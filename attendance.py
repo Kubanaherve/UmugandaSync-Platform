@@ -49,6 +49,18 @@ def select_attendance_status(allow_skip=False):
     return STATUS_CHOICES.get(choice)
 
 
+def get_member_record(member_id):
+    """Return a member record or None when the member does not exist."""
+    if not members.member_exists(member_id):
+        return None
+
+    return database.run_query(
+        "SELECT * FROM members WHERE member_id = %s",
+        (member_id,),
+        fetch="one",
+    )
+
+
 def attendance_menu():
     running = True
     while running:
