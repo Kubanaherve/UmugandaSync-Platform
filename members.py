@@ -66,3 +66,34 @@ class DuplicateMemberError(MemberError):
 class MemberNotFoundError(MemberError):
     """Raised when a requested member_id does not exist."""
 
+
+# --------------------------------------------------------------------------
+# Validation helpers
+# --------------------------------------------------------------------------
+NATIONAL_ID_PATTERN = re.compile(r"^\d{16}$")
+# Accepts formats like 0788123456 or +250788123456 or 250788123456
+PHONE_PATTERN = re.compile(r"^(?:\+?250|0)7\d{8}$")
+EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def validate_national_id(national_id):
+    """
+    Validate a Rwandan National ID number.
+
+    Rules:
+        - Optional field (None or "" is allowed - caller decides).
+        - If provided, must be exactly 16 digits.
+
+    Returns the cleaned national_id (or None) on success.
+    Raises ValidationError on failure.
+    """
+    if national_id is None or national_id == "":
+        return None
+
+    cleaned = national_id.strip()
+    if not NATIONAL_ID_PATTERN.match(cleaned):
+        raise ValidationError(
+            "Invalid National ID: must be exactly 16 digits."
+        )
+    return cleaned
+
