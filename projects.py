@@ -861,3 +861,30 @@ def show_deadline_monitor() -> None:
         )
     )
     _display_projects(soon)
+
+
+def build_project_report() -> dict[str, Any]:
+    """
+    Build aggregated project report metrics.
+
+    Returns
+    -------
+    dict
+        Keys: total, by_status, average_completion, overdue_count,
+        nearing_deadline_count, completion_rate
+    """
+    by_status = fetch_status_counts()
+    total = sum(by_status.values())
+    completed = by_status.get("Completed", 0)
+    overdue_count = len(fetch_overdue_projects())
+    nearing = len(fetch_projects_nearing_deadline())
+    avg_pct = fetch_average_completion()
+    completion_rate = (completed / total * 100.0) if total else 0.0
+    return {
+        "total": total,
+        "by_status": by_status,
+        "average_completion": avg_pct,
+        "overdue_count": overdue_count,
+        "nearing_deadline_count": nearing,
+        "completion_rate": completion_rate,
+    }
