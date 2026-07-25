@@ -326,3 +326,105 @@ def require_project(project_id: int) -> dict[str, Any]:
     if project is None:
         raise ProjectNotFoundError(f"Project {project_id} not found.")
     return project
+
+
+def fetch_all_projects() -> list[dict[str, Any]]:
+    """Return all projects with leader names, newest start first."""
+    rows = _query(
+        """
+        SELECT p.*, m.first_name, m.last_name
+        FROM projects p
+        LEFT JOIN members m ON p.leader_member_id = m.member_id
+        ORDER BY p.start_date DESC
+        """,
+        fetch="all",
+    )
+    return rows or []
+
+
+def fetch_projects_by_status(status: str) -> list[dict[str, Any]]:
+    """Return projects filtered by status."""
+    status = validate_status(status)
+    rows = _query(
+        """
+        SELECT p.*, m.first_name, m.last_name
+        FROM projects p
+        LEFT JOIN members m ON p.leader_member_id = m.member_id
+        WHERE p.status = %s
+        ORDER BY p.start_date DESC
+        """,
+        (status,),
+        fetch="all",
+    )
+    return rows or []
+
+
+def fetch_overdue_projects(today: Optional[str] = None) -> list[dict[str, Any]]:
+    """
+    Return active projects past their expected end date.
+
+    Parameters
+    ----------
+    today:
+        YYYY-MM-DD reference date; defaults to helpers.today_string().
+    """
+    if today is None:
+        today = helpers.today_string()
+    rows = _query(
+        """
+        SELECT p.*, m.first_name, m.last_name
+        FROM projects p
+        LEFT JOIN members m ON p.leader_member_id = m.member_id
+        WHERE p.status IN ('Pending', 'Ongoing')
+          AND p.expected_end_date < %s
+        ORDER BY p.expected_end_date
+        """,
+        (today,),
+        fetch="all",
+    )
+    return rows or []
+
+
+def fetch_projects_nearing_deadline(
+    today: Optional[str] = None,
+    within_days: int = DEADLINE_WARN_DAYS,
+) -> list[dict[str, Any]]:
+    """
+    Return active projects due within ``within_days`` (inclusive), not overdue.
+    """
+    if today is None:
+        today = helpers.today_string()
+    rows = _query(
+        """
+        SELECT p.*, m.first_name, m.last_name
+        FROM projects p
+        LEFT JOIN members m ON p.leader_member_id = m.member_id
+        WHERE p.status IN ('Pending', 'Ongoing')
+          AND p.expected_end_date >= %s
+          AND p.expected_end_date <= DATE_ADD(%s, INTERVAL %s DAY)
+        ORDER BY p.expected_end_date
+        """,
+        (today, today, within_days),
+        fetch="all",
+    )
+    return rows or []
+
+
+def search_projects_data(term: str) -> list[dict[str, Any]]:
+    """Search projects by name or location (case-insensitive LIKE)."""
+    cleaned = term.strip()
+    if cleaned == "":
+        raise ProjectValidationError("Search term cannot be empty.")
+    like = f"%{cleaned}%"
+    rows = _query(
+        """
+        SELECT p.*, m.first_name, m.last_name
+        FROM projects p
+        LEFT JOIN members m ON p.leader_member_id = m.member_id
+        WHERE p.project_name LIKE %s OR p.location LIKE %s
+        ORDER BY p.project_name
+        """,
+        (like, like),
+        fetch="all",
+    )
+    return rows or []
