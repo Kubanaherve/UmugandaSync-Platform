@@ -241,6 +241,8 @@ INSERT INTO notifications (notification_type, message, related_id, severity) VAL
 ('low_stock', 'Spade is low stock (only 2 available)', 2, 'warning'),
 ('broken_tool', 'Pickaxe is broken and needs replacement', 5, 'warning'),
 ('overdue_project', 'School Fence Repair is overdue (due: 2026-04-01)', 4, 'warning'),
-('new_member', 'Alice Iradukunda registered as a new member', 8, 'info');
+('new_member', 'Alice Iradukunda registered as a new member', 8, 'info'),
+('absent_member', 'Eric Niyonzima has been absent for 3 consecutive Umuganda sessions', 3, 'warning'),
+('system', 'Monthly Umuganda scheduled for 2026-07-25', NULL, 'info');
 
 SELECT 'UmugandaSync database created successfully!' AS message;
