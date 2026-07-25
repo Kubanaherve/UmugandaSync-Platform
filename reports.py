@@ -313,3 +313,41 @@ def build_poor_attendance(min_absents: int = 2) -> list[dict[str, Any]]:
         (min_absents,),
         fetch="all",
     ) or []
+
+
+def build_project_summary() -> dict[str, Any]:
+    """Project counts/avg progress by status plus incomplete list."""
+    by_status = _query(
+        """
+        SELECT status, COUNT(*) AS total,
+               ROUND(AVG(percent_complete), 1) AS avg_progress
+        FROM projects
+        GROUP BY status
+        ORDER BY status
+        """,
+        fetch="all",
+    ) or []
+    incomplete = _query(
+        """
+        SELECT project_name, status, percent_complete, expected_end_date
+        FROM projects
+        WHERE status IN ('Pending', 'Ongoing')
+        ORDER BY expected_end_date
+        """,
+        fetch="all",
+    ) or []
+    overdue = _query(
+        """
+        SELECT project_name, status, percent_complete, expected_end_date
+        FROM projects
+        WHERE status IN ('Pending', 'Ongoing')
+          AND expected_end_date < CURDATE()
+        ORDER BY expected_end_date
+        """,
+        fetch="all",
+    ) or []
+    return {
+        "by_status": by_status,
+        "incomplete": incomplete,
+        "overdue": overdue,
+    }
