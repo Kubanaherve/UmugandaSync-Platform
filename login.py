@@ -1,3 +1,10 @@
+"""
+Authentication module for UmugandaSync.
+
+Handles admin password login, member ID/phone login,
+entry type selection, and rate limiting.
+"""
+
 import logging
 from typing import Optional
 
