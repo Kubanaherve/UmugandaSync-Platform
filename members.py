@@ -295,3 +295,92 @@ def member_menu():
         else:
             print(languages.t("invalid_choice"))
 
+
+# --------------------------------------------------------------------------
+# Create
+# --------------------------------------------------------------------------
+def add_member():
+    """
+    Interactive flow to register a new member.
+
+    Validates National ID (optional), phone (required), and email
+    (optional) before insert. Prevents duplicate phone/National ID.
+    """
+    helpers.print_line("ADD MEMBER")
+
+    try:
+        national_id_raw = input("National ID (optional, Enter to skip): ").strip()
+        national_id = validate_national_id(national_id_raw)
+
+        first_name = helpers.get_non_empty("First name: ")
+        last_name = helpers.get_non_empty("Last name: ")
+
+        phone_raw = helpers.get_non_empty("Phone number: ")
+        phone = validate_phone(phone_raw)
+
+        email_raw = input("Email (optional, Enter to skip): ").strip()
+        email = validate_email(email_raw)
+
+        if is_duplicate_phone(phone):
+            raise DuplicateMemberError(
+                "This phone number is already registered."
+            )
+        if is_duplicate_national_id(national_id):
+            raise DuplicateMemberError(
+                "This National ID is already registered."
+            )
+
+        village = helpers.get_non_empty("Village: ")
+        cell_name = helpers.get_non_empty("Cell: ")
+
+        print("Gender: 1=Male  2=Female  3=Other")
+        g = input("Choose gender: ").strip()
+        if g == "1":
+            gender = "Male"
+        elif g == "2":
+            gender = "Female"
+        else:
+            gender = "Other"
+
+        date_registered = helpers.today_string()
+
+        new_id = _insert_member(
+            national_id, first_name, last_name, phone, email,
+            village, cell_name, gender, date_registered,
+        )
+
+        print("Member added successfully. Member ID:", new_id)
+        logger.info(
+            "Added member #%s (%s %s, phone=%s).",
+            new_id, first_name, last_name, phone,
+        )
+
+    except (ValidationError, DuplicateMemberError) as exc:
+        print("Error:", exc)
+        logger.warning("add_member failed: %s", exc)
+
+    helpers.pause()
+
+
+def _insert_member(national_id, first_name, last_name, phone, email,
+                    village, cell_name, gender, date_registered):
+    """
+    Low-level insert. Kept separate from add_member() so it is
+    reusable (e.g. for bulk import features) without re-prompting
+    the user for input.
+    """
+    sql = """
+        INSERT INTO members
+        (national_id, first_name, last_name, phone, email, village,
+         cell_name, gender, date_registered, status)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'Active')
+    """
+    values = (
+        national_id, first_name, last_name, phone, email,
+        village, cell_name, gender, date_registered,
+    )
+    new_id = database.run_query(sql, values)
+    if new_id is None:
+        raise MemberError("Database insert failed for new member.")
+    return new_id
+
