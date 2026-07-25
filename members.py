@@ -466,3 +466,63 @@ def _run_search(choice):
         )
     return None
 
+
+# --------------------------------------------------------------------------
+# Update
+# --------------------------------------------------------------------------
+def update_member():
+    """Interactive flow to update an existing member's editable fields."""
+    helpers.print_line("UPDATE MEMBER")
+
+    try:
+        member_id = helpers.get_positive_int("Member ID to update: ")
+        row = require_member(member_id)
+
+        print("Current:", row["first_name"], row["last_name"], row["phone"])
+        first_name = helpers.get_non_empty("New first name: ")
+        last_name = helpers.get_non_empty("New last name: ")
+
+        phone_raw = helpers.get_non_empty("New phone: ")
+        phone = validate_phone(phone_raw)
+
+        email_raw = input("New email (optional, Enter to skip): ").strip()
+        email = validate_email(email_raw)
+
+        village = helpers.get_non_empty("New village: ")
+        cell_name = helpers.get_non_empty("New cell: ")
+
+        if is_duplicate_phone(phone, exclude_member_id=member_id):
+            raise DuplicateMemberError(
+                "Phone already used by another member."
+            )
+
+        _update_member_row(
+            member_id, first_name, last_name, phone, email,
+            village, cell_name,
+        )
+        print("Member updated successfully.")
+        logger.info("Updated member #%s.", member_id)
+
+    except (ValidationError, DuplicateMemberError, MemberNotFoundError) as exc:
+        print("Error:", exc)
+        logger.warning("update_member failed: %s", exc)
+
+    helpers.pause()
+
+
+def _update_member_row(member_id, first_name, last_name, phone, email,
+                        village, cell_name):
+    """Low-level UPDATE statement, isolated for reuse/testing."""
+    result = database.run_query(
+        """
+        UPDATE members
+        SET first_name=%s, last_name=%s, phone=%s, email=%s,
+            village=%s, cell_name=%s
+        WHERE member_id=%s
+        """,
+        (first_name, last_name, phone, email, village, cell_name, member_id),
+    )
+    if result is None:
+        raise MemberError(f"Database update failed for member #{member_id}.")
+    return result
+
