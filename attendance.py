@@ -153,16 +153,11 @@ def record_attendance():
     month_name = month_info[3]
     year = month_info[1]
 
-    existing = database.run_query(
-        """
-        SELECT attendance_id FROM attendance
-        WHERE member_id = %s AND attendance_date = %s
-        """,
-        (member_id, attendance_date),
-        fetch="one"
-    )
-    if existing != None:
-        helpers.error("Attendance already recorded for this member on that Umuganda.")
+    existing = get_existing_attendance(member_id, attendance_date)
+    if existing is not None:
+        helpers.error(
+            "Attendance already recorded for this member on that Umuganda."
+        )
         helpers.pause()
         return
 
