@@ -1,6 +1,12 @@
+"""
+Application configuration constants for UmugandaSync.
+
+All settings are defined here as module-level constants.
+Environment variables (with UMUGANDA_ prefix) override defaults.
+"""
+
 import os
 from typing import Final
-
 
 APP_NAME: Final[str] = "UmugandaSync"
 APP_VERSION: Final[str] = "2.1.0"
@@ -11,6 +17,7 @@ DB_PASSWORD: str = os.getenv("UMUGANDA_DB_PASSWORD", "")
 DB_NAME: str = os.getenv("UMUGANDA_DB_NAME", "umuganda_sync")
 
 NATIONAL_ID_LENGTH: Final[int] = 16
+NATIONAL_ID_PREFIX: Final[str] = "1"
 
 CSV_EXPORT_DIR: str = os.getenv("UMUGANDA_CSV_DIR", "exports")
 CSV_DELIMITER: Final[str] = ","
