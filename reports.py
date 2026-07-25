@@ -540,3 +540,81 @@ def most_active_members() -> None:
                 "present/late",
             )
     helpers.pause()
+
+
+def poor_attendance_members() -> None:
+    """Print members with repeated absences."""
+    helpers.print_line(
+        languages.t("poor_attendance_title", fallback="POOR ATTENDANCE")
+    )
+    try:
+        rows = build_poor_attendance()
+    except ReportQueryError as exc:
+        helpers.error(str(exc))
+        helpers.pause()
+        return
+
+    if not rows:
+        print("No poor attendance found.")
+    else:
+        for row in rows:
+            print(
+                row["first_name"],
+                row["last_name"],
+                "| phone:",
+                row["phone"],
+                "| absents:",
+                row["absent_count"],
+            )
+    helpers.pause()
+
+
+def project_summary() -> None:
+    """Print project status aggregates, incomplete and overdue lists."""
+    helpers.print_line(
+        languages.t("project_summary_title", fallback="PROJECT SUMMARY")
+    )
+    try:
+        data = build_project_summary()
+    except ReportQueryError as exc:
+        helpers.error(str(exc))
+        helpers.pause()
+        return
+
+    if not data["by_status"]:
+        print("No projects.")
+    else:
+        for row in data["by_status"]:
+            print(
+                f"{row['status']}: {row['total']} projects | "
+                f"avg progress: {safe_num(row['avg_progress'])}%"
+            )
+
+    print("\n--- Incomplete projects ---")
+    if not data["incomplete"]:
+        print("None")
+    else:
+        for row in data["incomplete"]:
+            print(
+                row["project_name"],
+                "|",
+                row["status"],
+                "|",
+                f"{row['percent_complete']}% | due",
+                row["expected_end_date"],
+            )
+
+    print("\n--- Overdue projects ---")
+    if not data["overdue"]:
+        print("None")
+    else:
+        for row in data["overdue"]:
+            print(
+                row["project_name"],
+                "|",
+                row["status"],
+                "|",
+                f"{row['percent_complete']}% | due",
+                row["expected_end_date"],
+            )
+    helpers.pause()
