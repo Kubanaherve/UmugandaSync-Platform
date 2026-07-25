@@ -764,6 +764,28 @@ def _leader_display(row: dict[str, Any]) -> str:
     return leader
 
 
+def progress_bar(percent: Any, width: int = 10) -> str:
+    """
+    Build a simple ASCII progress bar for console reports.
+
+    Parameters
+    ----------
+    percent:
+        Completion percentage 0..100.
+    width:
+        Number of bar characters.
+
+    Returns
+    -------
+    str
+        Example: ``[####------] 40%``
+    """
+    value = validate_percent_complete(percent)
+    filled = int(round((value / 100.0) * width))
+    filled = max(0, min(width, filled))
+    return "[" + ("#" * filled) + ("-" * (width - filled)) + f"] {value:3d}%"
+
+
 def _display_projects(rows: Optional[list[dict[str, Any]]]) -> None:
     """
     Print a compact project table with deadline urgency.
@@ -794,7 +816,7 @@ def _display_projects(rows: Optional[list[dict[str, Any]]]) -> None:
             "|",
             str(row["status"]).ljust(10),
             "|",
-            str(row["percent_complete"]).rjust(3) + "%",
+            progress_bar(row["percent_complete"]),
             "|",
             languages.t("due"),
             str(row["expected_end_date"]),
