@@ -79,6 +79,19 @@ def build_session_remark(month_name, year, activity):
     return f"Umuganda {month_name} {year} — {activity}"
 
 
+def build_person_remark(session_remark, status):
+    """Add a useful status note to an Umuganda session remark."""
+    status_notes = {
+        "Late": "Arrived late",
+        "Excused": "Excused absence",
+        "Absent": "Absent",
+    }
+    note = status_notes.get(status)
+    if note:
+        return f"{session_remark} | {note}"
+    return session_remark
+
+
 def attendance_menu():
     running = True
     while running:
