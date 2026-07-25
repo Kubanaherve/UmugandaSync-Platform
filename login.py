@@ -89,6 +89,7 @@ def member_login() -> Optional[dict]:
     print()
 
     remaining = config.MAX_LOGIN_ATTEMPTS
+    member_key = "member"
 
     while remaining > 0:
         member_id = helpers.get_positive_int(languages.t("member_id_prompt"))
@@ -111,6 +112,7 @@ def member_login() -> Optional[dict]:
                 helpers.pause()
                 return None
 
+            ATTEMPT_STORE[member_key] = 0
             full_name = f"{row['first_name']} {row['last_name']}"
             logger.info(f"Member '{full_name}' (ID {member_id}) logged in")
             helpers.success(
@@ -122,6 +124,7 @@ def member_login() -> Optional[dict]:
             return row
 
         remaining -= 1
+        ATTEMPT_STORE[member_key] = ATTEMPT_STORE.get(member_key, 0) + 1
         helpers.error(languages.t("member_login_bad"))
         if remaining > 0:
             print(languages.t("attempts_left"), remaining)
