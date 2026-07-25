@@ -805,3 +805,38 @@ def _display_projects(rows: Optional[list[dict[str, Any]]]) -> None:
         )
     print()
     print(languages.t("total") + ":", len(rows))
+
+
+def show_overdue_alerts() -> int:
+    """
+    Print overdue project alerts.
+
+    Returns
+    -------
+    int
+        Number of overdue projects alerted.
+    """
+    helpers.print_line(
+        languages.t("overdue_alerts_title", fallback="OVERDUE PROJECT ALERTS")
+    )
+    rows = fetch_overdue_projects()
+    if not rows:
+        helpers.success(
+            languages.t("no_overdue_projects", fallback="No overdue projects.")
+        )
+        return 0
+
+    helpers.warning(
+        languages.t(
+            "overdue_alert_count",
+            fallback=f"{len(rows)} project(s) are overdue.",
+        ).replace("{n}", str(len(rows)))
+    )
+    for row in rows:
+        days_late = -days_until_deadline(row["expected_end_date"])
+        print(
+            f"  ! P#{row['project_id']} {row['project_name']} "
+            f"— due {row['expected_end_date']} ({days_late} day(s) late) "
+            f"— {row['percent_complete']}% — leader: {_leader_display(row)}"
+        )
+    return len(rows)
