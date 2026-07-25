@@ -58,3 +58,5 @@ Academic project — African Leadership University.
 ## Reports owner
 
 Reports module owned by Marvella (`marvella-reports` branch).
+
+Open pull requests from `marvella-reports` into `main` only.
