@@ -1,54 +1,59 @@
-# database.py
-# Owner: Rebecca
-# This file connects python to mysql
-# Other people should import this, dont write connect code in your own file
+"""
+Database access layer for UmugandaSync.
 
+Provides connection management, query execution, and health checks.
+All domain modules import from here instead of using mysql.connector directly.
+"""
+
+import logging
 import mysql.connector
 from mysql.connector import Error
+from typing import Any, Optional
+
 import config
 
+logger = logging.getLogger(__name__)
 
-def connect_db():
-    # open connection to our database
+
+def connect_db() -> Optional[mysql.connector.MySQLConnection]:
     try:
         connection = mysql.connector.connect(
             host=config.DB_HOST,
             user=config.DB_USER,
             password=config.DB_PASSWORD,
-            database=config.DB_NAME
+            database=config.DB_NAME,
         )
         return connection
     except Error as e:
+        logger.error(f"Database connection failed: {e}")
         print("Could not connect to database.")
         print(e)
         print("Check if MySQL is running and password in config.py")
         return None
 
 
-def close_db(connection, cursor=None):
-    # close things so we dont leave connections open
+def close_db(connection: Any, cursor: Any = None) -> None:
     try:
-        if cursor != None:
+        if cursor is not None:
             cursor.close()
-        if connection != None:
+        if connection is not None:
             if connection.is_connected():
                 connection.close()
+                logger.debug("Database connection closed")
     except Error:
         pass
 
 
-def run_query(sql, values=None, fetch=None):
-    # Rebecca: one function for select/insert/update/delete
-    # fetch = "one" or "all" or None (for insert/update/delete)
+def run_query(
+    sql: str, values: Optional[tuple] = None, fetch: Optional[str] = None
+) -> Any:
     connection = connect_db()
-    if connection == None:
+    if connection is None:
         return None
-
     cursor = None
     try:
         cursor = connection.cursor(dictionary=True)
-
-        if values == None:
+        if values is None:
             cursor.execute(sql)
         else:
             cursor.execute(sql, values)
@@ -57,19 +62,16 @@ def run_query(sql, values=None, fetch=None):
             result = cursor.fetchone()
             close_db(connection, cursor)
             return result
-
         if fetch == "all":
             result = cursor.fetchall()
             close_db(connection, cursor)
             return result
-
-        # insert update delete
         connection.commit()
         last_id = cursor.lastrowid
         close_db(connection, cursor)
         return last_id
-
     except Error as e:
+        logger.error(f"SQL error: {e}")
         print("SQL error:")
         print(e)
         try:
@@ -80,10 +82,9 @@ def run_query(sql, values=None, fetch=None):
         return None
 
 
-def test_connection():
-    # quick test
+def test_connection() -> bool:
     connection = connect_db()
-    if connection == None:
+    if connection is None:
         print("FAILED: could not connect.")
         return False
     print("SUCCESS: connected to MySQL database", config.DB_NAME)
@@ -91,7 +92,5 @@ def test_connection():
     return True
 
 
-# if we run this file alone we can test connection
 if __name__ == "__main__":
     test_connection()
-
