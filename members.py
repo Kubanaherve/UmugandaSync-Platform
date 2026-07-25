@@ -526,3 +526,84 @@ def _update_member_row(member_id, first_name, last_name, phone, email,
         raise MemberError(f"Database update failed for member #{member_id}.")
     return result
 
+
+# --------------------------------------------------------------------------
+# Delete
+# --------------------------------------------------------------------------
+def delete_member():
+    """
+    Interactive flow to permanently delete a member.
+
+    If deletion fails (e.g. due to foreign-key constraints from
+    attendance/borrow records), the user is advised to deactivate
+    the member instead.
+    """
+    helpers.print_line("DELETE MEMBER")
+
+    try:
+        member_id = helpers.get_positive_int("Member ID to delete: ")
+        row = require_member(member_id)
+
+        print("You will delete:", row["first_name"], row["last_name"])
+        ok = helpers.confirm("Are you sure? This cannot be undone")
+        if not ok:
+            print("Delete cancelled.")
+            helpers.pause()
+            return
+
+        result = database.run_query(
+            "DELETE FROM members WHERE member_id = %s",
+            (member_id,),
+        )
+        if result is not None:
+            print("Member deleted.")
+            logger.info("Deleted member #%s.", member_id)
+        else:
+            print("Could not delete. Maybe they have attendance or borrows.")
+            print("Tip: deactivate the member instead.")
+            logger.warning(
+                "Delete blocked for member #%s (likely FK constraint).",
+                member_id,
+            )
+
+    except MemberNotFoundError as exc:
+        print("Error:", exc)
+        logger.warning("delete_member failed: %s", exc)
+
+    helpers.pause()
+
+
+# --------------------------------------------------------------------------
+# Status (activate / deactivate)
+# --------------------------------------------------------------------------
+def set_member_status(new_status):
+    """
+    Set a member's status to 'Active' or 'Inactive'.
+
+    Shared implementation backing both the Deactivate (6) and
+    Activate (7) menu options.
+    """
+    helpers.print_line("SET MEMBER STATUS: " + new_status)
+
+    try:
+        member_id = helpers.get_positive_int("Member ID: ")
+        require_member(member_id)
+
+        result = database.run_query(
+            "UPDATE members SET status = %s WHERE member_id = %s",
+            (new_status, member_id),
+        )
+        if result is not None:
+            print("Member status changed to", new_status)
+            logger.info("Member #%s status set to %s.", member_id, new_status)
+        else:
+            print("Failed to update status.")
+            logger.warning(
+                "Status update failed for member #%s.", member_id
+            )
+
+    except MemberNotFoundError as exc:
+        print("Error:", exc)
+        logger.warning("set_member_status failed: %s", exc)
+
+    helpers.pause()
