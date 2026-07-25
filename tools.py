@@ -151,19 +151,7 @@ def update_tool():
         helpers.pause()
         return
 
-    print("Condition: 1=Good  2=Needs Repair  3=Broken  4=Lost")
-    cond_choice = input("Choose condition: ").strip()
-    if cond_choice == "1":
-        condition_status = "Good"
-    elif cond_choice == "2":
-        condition_status = "Needs Repair"
-    elif cond_choice == "3":
-        condition_status = "Broken"
-    elif cond_choice == "4":
-        condition_status = "Lost"
-    else:
-        condition_status = row["condition_status"]
-
+    condition_status = ask_condition_status(default=row["condition_status"])
     low_stock_limit = helpers.get_positive_int("Low stock limit: ")
 
     result = database.run_query(
