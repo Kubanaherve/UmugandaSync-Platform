@@ -1,67 +1,62 @@
 # UmugandaSync — Testing Guide
 
 ## Purpose
-This checklist verifies that the reports module (and the overall
-system it depends on) works correctly before presentation.
 
-## Pre-Test Setup
-- [ ] MySQL server is running
-- [ ] database.sql has been imported successfully
-- [ ] config.py has correct connection details
-- [ ] At least a few sample rows exist in members, attendance,
-      projects, and tools (for reports to show real numbers)
+Verify platform modules compile and the reports helpers behave correctly
+before presentation or deployment.
 
-## Reports Module Test Cases
+## Quick checks
 
-1. Community Summary
-   - [ ] Run Reports → 1
-   - [ ] Confirm total members, active members, total/ongoing
-         projects, tool types, available tool units, and
-         umuganda dates recorded all display without errors
-   - [ ] Confirm numbers match what's actually in the database
+```bash
+python3 -m py_compile *.py
+python3 tests.py
+```
 
-2. Member Report
-   - [ ] Run Reports → 2
-   - [ ] Confirm members are grouped correctly by status
-   - [ ] Confirm members are grouped correctly by village
+## Reports checklist (manual)
 
-3. Attendance Summary
-   - [ ] Run Reports → 3
-   - [ ] Confirm attendance counts by status display correctly
-   - [ ] Confirm overall present/late percentage calculates correctly
+With MySQL running and seed data loaded:
 
-4. Most Active Members
-   - [ ] Run Reports → 4
-   - [ ] Confirm top 10 list is sorted by present/late count,
-         highest first
+1. Login as admin
+2. Open Reports
+3. Run options 1–8; confirm numbers look sane vs dashboard
+4. Run exports 9, 10, 12; confirm files appear in `exports/`
+5. Run KPI snapshot (11)
+6. Exit with 0 and confirm return to main menu
 
-5. Poor Attendance Members
-   - [ ] Run Reports → 5
-   - [ ] Confirm only members with 2+ absences appear
-   - [ ] Confirm sorted by absent count, highest first
+## Automated helper tests
 
-6. Project Summary
-   - [ ] Run Reports → 6
-   - [ ] Confirm project counts and average progress by status
-   - [ ] Confirm incomplete projects list shows correct due dates
+`tests.py` covers shared utilities. Reports-specific pure helpers can be
+checked quickly:
 
-7. Inventory Summary
-   - [ ] Run Reports → 7
-   - [ ] Confirm tool totals, condition breakdown, low-stock list,
-         and currently-borrowed list all display correctly
+```bash
+python3 - <<'PY'
+import reports
+assert reports.safe_num(None) == 0
+assert reports.safe_num(5) == 5
+assert reports.safe_row(None, "total") == 0
+assert reports.safe_row({"total": None}, "total") == 0
+assert reports.safe_row({"total": 3}, "total") == 3
+print("reports helpers OK")
+PY
+```
 
-8. Attendance by Village
-   - [ ] Run Reports → 8
-   - [ ] Confirm records/present-late/absent counts per village
+## Database smoke test
 
-## Edge Cases
-- [ ] Empty database (no members/attendance/projects/tools) does
-      not crash any report — shows "No data" messages instead
-- [ ] Reports menu option 0 exits back to the main menu correctly
-- [ ] Invalid menu input (e.g. letters) shows "Invalid choice."
-      without crashing
+```bash
+python3 -c "import database; assert database.test_connection()"
+```
 
-## Sign-off
-Tested by: Marvella
-Date: _______________
-Result: Pass / Fail (circle one)
+## Failure triage
+
+| Issue | Action |
+| --- | --- |
+| Connection failure | Fix `config.py` / start MySQL |
+| Empty reports | Confirm `database.sql` seed applied |
+| Export OSError | Ensure `exports/` is writable |
+## Presentation smoke
+
+Run options 1 and 13 once before presenting.
+
+## Presentation smoke
+
+Run options 1 and 13 once before presenting.
