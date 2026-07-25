@@ -548,6 +548,26 @@ def list_villages():
     return rows
 
 
+def get_existing_member_ids(attendance_date, member_rows):
+    """Return IDs already recorded, avoiding one query per member."""
+    member_ids = [row["member_id"] for row in member_rows]
+    if not member_ids:
+        return set()
+
+    placeholders = ", ".join(["%s"] * len(member_ids))
+    query = (
+        "SELECT member_id FROM attendance "
+        "WHERE attendance_date = %s "
+        f"AND member_id IN ({placeholders})"
+    )
+    rows = database.run_query(
+        query,
+        tuple([attendance_date] + member_ids),
+        fetch="all",
+    )
+    return {row["member_id"] for row in (rows or [])}
+
+
 def record_village_or_all_attendance():
     # mark everyone for one official Umuganda Saturday
     helpers.print_line("UMUGANDA ROLL CALL (VILLAGE / ALL MEMBERS)")
