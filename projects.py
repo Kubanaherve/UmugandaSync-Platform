@@ -428,3 +428,114 @@ def search_projects_data(term: str) -> list[dict[str, Any]]:
         fetch="all",
     )
     return rows or []
+
+
+def insert_project(
+    *,
+    project_name: str,
+    description: Optional[str],
+    location: str,
+    leader_member_id: int,
+    start_date: str,
+    expected_end_date: str,
+    status: str = "Pending",
+    percent_complete: int = 0,
+) -> int:
+    """
+    Insert a project row.
+
+    Returns
+    -------
+    int
+        New project_id.
+
+    Raises
+    ------
+    ProjectDataError
+        If insert fails.
+    """
+    result = _query(
+        """
+        INSERT INTO projects
+            (project_name, description, location, leader_member_id,
+             start_date, expected_end_date, status, percent_complete)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        """,
+        (
+            project_name,
+            description,
+            location,
+            leader_member_id,
+            start_date,
+            expected_end_date,
+            status,
+            percent_complete,
+        ),
+    )
+    if result is None:
+        raise ProjectDataError("Failed to insert project.")
+    return int(result)
+
+
+def update_project_fields(project_id: int, fields: dict[str, Any]) -> None:
+    """
+    Update selected columns for a project using parameterized SQL.
+
+    Raises
+    ------
+    ProjectValidationError
+        If fields is empty.
+    ProjectDataError
+        If update fails.
+    """
+    if not fields:
+        raise ProjectValidationError("No fields provided to update.")
+    # Column names are controlled by callers (internal), values are bound.
+    assignments = ", ".join(f"{column} = %s" for column in fields)
+    params = tuple(fields.values()) + (project_id,)
+    result = _query(
+        f"UPDATE projects SET {assignments} WHERE project_id = %s",
+        params,
+    )
+    if result is None:
+        raise ProjectDataError(f"Failed to update project {project_id}.")
+
+
+def delete_project_by_id(project_id: int) -> None:
+    """
+    Delete a project by id.
+
+    Raises
+    ------
+    ProjectDataError
+    """
+    result = _query("DELETE FROM projects WHERE project_id = %s", (project_id,))
+    if result is None:
+        raise ProjectDataError(f"Failed to delete project {project_id}.")
+
+
+def fetch_status_counts() -> dict[str, int]:
+    """Return counts keyed by status for reports."""
+    rows = _query(
+        """
+        SELECT status, COUNT(*) AS total
+        FROM projects
+        GROUP BY status
+        """,
+        fetch="all",
+    ) or []
+    counts = {status: 0 for status in VALID_STATUSES}
+    for row in rows:
+        counts[row["status"]] = int(row["total"])
+    return counts
+
+
+def fetch_average_completion() -> float:
+    """Return average percent_complete across all projects."""
+    row = _query(
+        "SELECT AVG(percent_complete) AS avg_pct FROM projects",
+        fetch="one",
+    )
+    if row is None or row["avg_pct"] is None:
+        return 0.0
+    return float(row["avg_pct"])
