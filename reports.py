@@ -351,3 +351,51 @@ def build_project_summary() -> dict[str, Any]:
         "incomplete": incomplete,
         "overdue": overdue,
     }
+
+
+def build_inventory_summary() -> dict[str, Any]:
+    """Tool inventory totals, condition, low stock, and open borrows."""
+    totals = _query(
+        """
+        SELECT
+          COUNT(*) AS tool_types,
+          SUM(total_quantity) AS total_units,
+          SUM(available_quantity) AS available_units
+        FROM tools
+        """,
+        fetch="one",
+    ) or {}
+    by_cond = _query(
+        """
+        SELECT condition_status, COUNT(*) AS total
+        FROM tools
+        GROUP BY condition_status
+        """,
+        fetch="all",
+    ) or []
+    low = _query(
+        """
+        SELECT tool_name, available_quantity, low_stock_limit
+        FROM tools
+        WHERE available_quantity <= low_stock_limit
+        ORDER BY available_quantity
+        """,
+        fetch="all",
+    ) or []
+    borrowed = _query(
+        """
+        SELECT t.tool_name, m.first_name, m.last_name, b.quantity, b.borrow_date
+        FROM tool_borrows b
+        JOIN tools t ON b.tool_id = t.tool_id
+        JOIN members m ON b.member_id = m.member_id
+        WHERE b.status = 'Borrowed'
+        ORDER BY b.borrow_date
+        """,
+        fetch="all",
+    ) or []
+    return {
+        "totals": totals,
+        "by_condition": by_cond,
+        "low_stock": low,
+        "borrowed": borrowed,
+    }
