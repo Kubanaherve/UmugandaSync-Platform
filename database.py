@@ -6,7 +6,7 @@ transaction support, batch operations, and health checks.
 All domain modules import from here instead of using mysql.connector directly.
 
 Usage:
-    row = database.run_query("SELECT * FROM members WHERE member_id = %s", (1,), fetch="one")
+    row = database.run_query("SELECT * FROM members WHERE national_id = %s", (national_id,), fetch="one")
     rows = database.get_many("members", where="status = %s", where_values=("Active",), order_by="last_name")
     new_id = database.insert_one("members", {"first_name": "John", "last_name": "Doe", ...})
     with database.transaction() as cursor:
@@ -179,6 +179,204 @@ def test_connection() -> bool:
     return True
 
 
+def _table_exists(cursor: Any, table: str) -> bool:
+    cursor.execute(
+        """
+        SELECT COUNT(*) AS n
+        FROM information_schema.tables
+        WHERE table_schema = %s AND table_name = %s
+        """,
+        (config.DB_NAME, table),
+    )
+    row = cursor.fetchone()
+    return bool(row and row[0])
+
+
+def _column_exists(cursor: Any, table: str, column: str) -> bool:
+    cursor.execute(
+        """
+        SELECT COUNT(*) AS n
+        FROM information_schema.columns
+        WHERE table_schema = %s AND table_name = %s AND column_name = %s
+        """,
+        (config.DB_NAME, table, column),
+    )
+    row = cursor.fetchone()
+    return bool(row and row[0])
+
+
+def _index_exists(cursor: Any, table: str, index_name: str) -> bool:
+    cursor.execute(
+        """
+        SELECT COUNT(*) AS n
+        FROM information_schema.statistics
+        WHERE table_schema = %s AND table_name = %s AND index_name = %s
+        """,
+        (config.DB_NAME, table, index_name),
+    )
+    row = cursor.fetchone()
+    return bool(row and row[0])
+
+
+def _members_uses_legacy_int_pk(cursor: Any) -> bool:
+    """True when members still has the old auto-increment member_id primary key."""
+    if not _column_exists(cursor, "members", "member_id"):
+        return False
+    cursor.execute(
+        """
+        SELECT DATA_TYPE, COLUMN_KEY
+        FROM information_schema.columns
+        WHERE table_schema = %s AND table_name = 'members'
+          AND column_name = 'member_id'
+        """,
+        (config.DB_NAME,),
+    )
+    row = cursor.fetchone()
+    if not row:
+        return False
+    data_type, column_key = row[0], row[1]
+    return str(data_type).lower() in ("int", "integer") and column_key == "PRI"
+
+
+def ensure_schema() -> bool:
+    """
+    Bring an older umuganda_sync database in line with database.sql
+    without dropping existing data when safe.
+
+    Members must use national_id CHAR(16) as the primary key. Databases
+    still on the legacy INT member_id PK cannot be migrated in place —
+    reload with: mysql -u root < database.sql
+    """
+    connection = connect_db()
+    if connection is None:
+        return False
+
+    cursor = None
+    applied: list[str] = []
+    try:
+        cursor = connection.cursor()
+
+        required_tables = (
+            "admins",
+            "members",
+            "attendance",
+            "projects",
+            "tools",
+            "tool_borrows",
+        )
+        missing_core = [t for t in required_tables if not _table_exists(cursor, t)]
+        if missing_core:
+            logger.error("Missing core tables: %s", ", ".join(missing_core))
+            print("Database is incomplete. Missing tables:", ", ".join(missing_core))
+            print("Run: mysql -u root < database.sql")
+            return False
+
+        if _members_uses_legacy_int_pk(cursor):
+            logger.error("Legacy INT member_id primary key detected")
+            print()
+            print("Your database still uses the old integer Member ID.")
+            print("UmugandaSync now requires the 16-digit National ID as the")
+            print("primary key for members (and as member_id in related tables).")
+            print()
+            print("Reload the schema (this recreates the database):")
+            print("  mysql -u root < database.sql")
+            print()
+            return False
+
+        if not _column_exists(cursor, "members", "national_id"):
+            print("members.national_id is missing. Run: mysql -u root < database.sql")
+            return False
+
+        # members.email — required by members.py and search.py
+        if not _column_exists(cursor, "members", "email"):
+            cursor.execute(
+                """
+                ALTER TABLE members
+                ADD COLUMN email VARCHAR(100) NULL AFTER national_id
+                """
+            )
+            applied.append("members.email")
+
+        # Prefer longer password hashes / future bcrypt
+        cursor.execute(
+            """
+            SELECT CHARACTER_MAXIMUM_LENGTH
+            FROM information_schema.columns
+            WHERE table_schema = %s AND table_name = 'admins'
+              AND column_name = 'password'
+            """,
+            (config.DB_NAME,),
+        )
+        pw_len_row = cursor.fetchone()
+        if pw_len_row and pw_len_row[0] is not None and int(pw_len_row[0]) < 255:
+            cursor.execute(
+                "ALTER TABLE admins MODIFY password VARCHAR(255) NOT NULL"
+            )
+            applied.append("admins.password length")
+
+        if not _table_exists(cursor, "notifications"):
+            cursor.execute(
+                """
+                CREATE TABLE notifications (
+                    notification_id   INT AUTO_INCREMENT PRIMARY KEY,
+                    notification_type VARCHAR(50)  NOT NULL,
+                    message           TEXT         NOT NULL,
+                    related_id        INT          NULL,
+                    severity          VARCHAR(20)  NOT NULL DEFAULT 'info',
+                    is_read           TINYINT(1)   NOT NULL DEFAULT 0,
+                    created_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    CONSTRAINT chk_notification_severity CHECK (
+                        severity IN ('info', 'warning', 'error', 'success')
+                    ),
+                    CONSTRAINT chk_notification_type CHECK (
+                        notification_type IN (
+                            'low_stock', 'overdue_project', 'broken_tool',
+                            'absent_member', 'new_member', 'attendance_reminder',
+                            'system'
+                        )
+                    )
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+                """
+            )
+            applied.append("notifications table")
+
+        index_specs = (
+            ("members", "idx_members_phone", "phone"),
+            ("members", "idx_members_status", "status"),
+            ("members", "idx_members_village", "village"),
+            ("attendance", "idx_attendance_date", "attendance_date"),
+            ("projects", "idx_projects_status", "status"),
+            ("projects", "idx_projects_end_date", "expected_end_date"),
+            ("tools", "idx_tools_condition", "condition_status"),
+            ("tool_borrows", "idx_borrows_status", "status"),
+        )
+        for table, index_name, column in index_specs:
+            if _table_exists(cursor, table) and not _index_exists(cursor, table, index_name):
+                if _column_exists(cursor, table, column):
+                    cursor.execute(
+                        f"CREATE INDEX {index_name} ON {table}({column})"
+                    )
+                    applied.append(index_name)
+
+        connection.commit()
+        if applied:
+            logger.info("Schema updates applied: %s", ", ".join(applied))
+            print("Database schema updated:", ", ".join(applied))
+        else:
+            logger.info("Database schema already up to date")
+        return True
+    except Error as e:
+        logger.error(f"Schema ensure failed: {e}")
+        print("Could not update database schema:", e)
+        try:
+            connection.rollback()
+        except Error:
+            pass
+        return False
+    finally:
+        close_db(connection, cursor)
+
+
 @contextmanager
 def transaction() -> Iterator[Any]:
     connection = connect_db()
@@ -289,4 +487,5 @@ def exists(
 
 
 if __name__ == "__main__":
-    test_connection()
+    if test_connection():
+        ensure_schema()

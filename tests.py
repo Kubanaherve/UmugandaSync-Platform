@@ -181,7 +181,7 @@ class TestProjectsValidation(unittest.TestCase):
 
     def test_validate_leader_id_valid(self):
         import projects
-        self.assertEqual(projects.validate_leader_id(1), 1)
+        self.assertEqual(projects.validate_leader_id("1199780123456789"), "1199780123456789")
 
     def test_validate_leader_id_invalid(self):
         import projects
@@ -278,11 +278,13 @@ class TestMembersValidation(unittest.TestCase):
 
     def test_validate_national_id_none(self):
         import members
-        self.assertIsNone(members.validate_national_id(None))
+        with self.assertRaises(members.ValidationError):
+            members.validate_national_id(None)
 
     def test_validate_national_id_empty(self):
         import members
-        self.assertIsNone(members.validate_national_id(""))
+        with self.assertRaises(members.ValidationError):
+            members.validate_national_id("")
 
     def test_validate_national_id_too_short(self):
         import members
@@ -517,7 +519,7 @@ class TestDatabaseHelpers(unittest.TestCase):
         mock_conn.cursor.return_value = mock_cursor
         mock_connect.return_value = mock_conn
 
-        self.assertTrue(database.exists("members", "member_id = %s", (1,)))
+        self.assertTrue(database.exists("members", "national_id = %s", ("1199780123456789",)))
 
     @patch("database.connect_db")
     def test_exists_false(self, mock_connect):
@@ -528,7 +530,7 @@ class TestDatabaseHelpers(unittest.TestCase):
         mock_conn.cursor.return_value = mock_cursor
         mock_connect.return_value = mock_conn
 
-        self.assertFalse(database.exists("members", "member_id = %s", (999,)))
+        self.assertFalse(database.exists("members", "national_id = %s", ("9999999999999999",)))
 
     @patch("database.connect_db",
            return_value=None)
@@ -582,7 +584,7 @@ class TestCSVExport(unittest.TestCase):
     @patch("csv_export.helpers.pause")
     def test_export_members_with_data(self, mock_pause, mock_write, mock_query):
         import csv_export
-        mock_query.return_value = [{"member_id": 1, "first_name": "John"}]
+        mock_query.return_value = [{"national_id": "1199780123456789", "first_name": "John"}]
         mock_write.return_value = 1
         csv_export.export_members()
         mock_write.assert_called_once()
@@ -726,7 +728,7 @@ class TestSearchModule(unittest.TestCase):
     @patch("search.database.run_query")
     def test_search_member_by_national_id(self, mock_query):
         import search
-        mock_query.return_value = {"member_id": 1, "first_name": "Jean"}
+        mock_query.return_value = {"national_id": "1199780123456789", "first_name": "Jean"}
         result = search.search_member_by_national_id("1199780123456789")
         self.assertIsNotNone(result)
 
@@ -763,12 +765,12 @@ class TestLoginModule(unittest.TestCase):
     def test_member_login_success(self, mock_query):
         import login
         mock_query.return_value = {
-            "member_id": 1, "first_name": "Jean", "last_name": "Uwimana",
+            "national_id": "1199780123456789", "first_name": "Jean", "last_name": "Uwimana",
             "phone": "0788000001", "village": "Kagugu", "cell_name": "Nyarugunga",
             "status": "Active"
         }
-        with patch("login.helpers.get_positive_int") as mock_id:
-            mock_id.return_value = 1
+        with patch("login.helpers.get_required_national_id") as mock_id:
+            mock_id.return_value = "1199780123456789"
             with patch("login.helpers.get_non_empty") as mock_phone:
                 mock_phone.return_value = "0788000001"
                 with patch("login.helpers.pause"):
@@ -779,11 +781,11 @@ class TestLoginModule(unittest.TestCase):
     def test_member_login_inactive(self, mock_query):
         import login
         mock_query.return_value = {
-            "member_id": 1, "first_name": "Patrick", "last_name": "Habimana",
+            "national_id": "1199480123456793", "first_name": "Patrick", "last_name": "Habimana",
             "phone": "0788000005", "status": "Inactive"
         }
-        with patch("login.helpers.get_positive_int") as mock_id:
-            mock_id.return_value = 5
+        with patch("login.helpers.get_required_national_id") as mock_id:
+            mock_id.return_value = "1199480123456793"
             with patch("login.helpers.get_non_empty") as mock_phone:
                 mock_phone.return_value = "0788000005"
                 with patch("login.helpers.pause"):

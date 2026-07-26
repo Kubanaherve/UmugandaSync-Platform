@@ -57,7 +57,7 @@ def record_attendance():
     helpers.print_line("RECORD UMUGANDA ATTENDANCE")
     helpers.tip("You only choose the month. Date is auto-set to last Saturday.")
 
-    member_id = helpers.get_positive_int("Member ID: ")
+    member_id = helpers.get_required_national_id("National ID: ")
     if members.member_exists(member_id) == False:
         helpers.error("Member not found.")
         helpers.pause()
@@ -125,7 +125,7 @@ def print_attendance_rows(rows):
     for row in rows:
         print(row["attendance_id"], "|", row["attendance_date"], "|",
               row["first_name"], row["last_name"],
-              "(ID", str(row["member_id"]) + ")", "|",
+              "(NID", str(row.get("member_id") or row.get("national_id")) + ")", "|",
               row["status"], "|", row["remarks"])
 
 
@@ -136,7 +136,7 @@ def view_all_attendance():
         SELECT a.attendance_id, a.attendance_date, a.status, a.remarks,
                a.member_id, m.first_name, m.last_name
         FROM attendance a
-        JOIN members m ON a.member_id = m.member_id
+        JOIN members m ON a.member_id = m.national_id
         ORDER BY a.attendance_date DESC, a.attendance_id DESC
         """,
         fetch="all"
@@ -159,7 +159,7 @@ def view_by_date():
         SELECT a.attendance_id, a.attendance_date, a.status, a.remarks,
                a.member_id, m.first_name, m.last_name
         FROM attendance a
-        JOIN members m ON a.member_id = m.member_id
+        JOIN members m ON a.member_id = m.national_id
         WHERE a.attendance_date = %s
         ORDER BY m.first_name
         """,
@@ -172,13 +172,13 @@ def view_by_date():
 
 def view_by_member():
     helpers.print_line("ATTENDANCE BY MEMBER")
-    member_id = helpers.get_positive_int("Member ID: ")
+    member_id = helpers.get_required_national_id("National ID: ")
     rows = database.run_query(
         """
         SELECT a.attendance_id, a.attendance_date, a.status, a.remarks,
                a.member_id, m.first_name, m.last_name
         FROM attendance a
-        JOIN members m ON a.member_id = m.member_id
+        JOIN members m ON a.member_id = m.national_id
         WHERE a.member_id = %s
         ORDER BY a.attendance_date DESC
         """,
@@ -201,7 +201,7 @@ def search_attendance():
             SELECT a.attendance_id, a.attendance_date, a.status, a.remarks,
                    a.member_id, m.first_name, m.last_name
             FROM attendance a
-            JOIN members m ON a.member_id = m.member_id
+            JOIN members m ON a.member_id = m.national_id
             WHERE a.status = %s
             ORDER BY a.attendance_date DESC
             """,
@@ -219,7 +219,7 @@ def search_attendance():
 
 def member_attendance_percentage():
     helpers.print_line("ATTENDANCE PERCENTAGE")
-    member_id = helpers.get_positive_int("Member ID: ")
+    member_id = helpers.get_required_national_id("National ID: ")
     if members.member_exists(member_id) == False:
         print("Member not found.")
         helpers.pause()
@@ -247,6 +247,11 @@ def member_attendance_percentage():
         fetch="one"
     )
 
+    if total_row is None or attended_row is None or missed_row is None:
+        print("Could not retrieve attendance data. Check database connection.")
+        helpers.pause()
+        return
+
     total = total_row["total"]
     attended = attended_row["attended"]
     missed = missed_row["missed"]
@@ -268,11 +273,11 @@ def attendance_analytics():
     print("\n--- Top 10 most active members ---")
     top_rows = database.run_query(
         """
-        SELECT m.member_id, m.first_name, m.last_name, COUNT(*) AS times_present
+        SELECT m.national_id, m.first_name, m.last_name, COUNT(*) AS times_present
         FROM attendance a
-        JOIN members m ON a.member_id = m.member_id
+        JOIN members m ON a.member_id = m.national_id
         WHERE a.status = 'Present' OR a.status = 'Late'
-        GROUP BY m.member_id, m.first_name, m.last_name
+        GROUP BY m.national_id, m.first_name, m.last_name
         ORDER BY times_present DESC
         LIMIT 10
         """,
@@ -287,11 +292,11 @@ def attendance_analytics():
     print("\n--- Poor attendance (many Absents) ---")
     poor_rows = database.run_query(
         """
-        SELECT m.member_id, m.first_name, m.last_name, COUNT(*) AS times_absent
+        SELECT m.national_id, m.first_name, m.last_name, COUNT(*) AS times_absent
         FROM attendance a
-        JOIN members m ON a.member_id = m.member_id
+        JOIN members m ON a.member_id = m.national_id
         WHERE a.status = 'Absent'
-        GROUP BY m.member_id, m.first_name, m.last_name
+        GROUP BY m.national_id, m.first_name, m.last_name
         HAVING COUNT(*) >= 2
         ORDER BY times_absent DESC
         """,
@@ -306,11 +311,11 @@ def attendance_analytics():
     print("\n--- Perfect attendance ---")
     perfect_rows = database.run_query(
         """
-        SELECT m.member_id, m.first_name, m.last_name, COUNT(a.attendance_id) AS sessions
+        SELECT m.national_id, m.first_name, m.last_name, COUNT(a.attendance_id) AS sessions
         FROM members m
-        JOIN attendance a ON m.member_id = a.member_id
+        JOIN attendance a ON m.national_id = a.member_id
         WHERE m.status = 'Active'
-        GROUP BY m.member_id, m.first_name, m.last_name
+        GROUP BY m.national_id, m.first_name, m.last_name
         HAVING SUM(CASE WHEN a.status = 'Absent' THEN 1 ELSE 0 END) = 0
            AND COUNT(a.attendance_id) >= 1
         ORDER BY sessions DESC
@@ -326,11 +331,11 @@ def attendance_analytics():
     print("\n--- 3 or more absences ---")
     consecutive_like = database.run_query(
         """
-        SELECT m.member_id, m.first_name, m.last_name, COUNT(*) AS absent_count
+        SELECT m.national_id, m.first_name, m.last_name, COUNT(*) AS absent_count
         FROM attendance a
-        JOIN members m ON a.member_id = m.member_id
+        JOIN members m ON a.member_id = m.national_id
         WHERE a.status = 'Absent'
-        GROUP BY m.member_id, m.first_name, m.last_name
+        GROUP BY m.national_id, m.first_name, m.last_name
         HAVING COUNT(*) >= 3
         ORDER BY absent_count DESC
         """,
@@ -416,7 +421,7 @@ def record_village_or_all_attendance():
     if scope == "1":
         member_rows = database.run_query(
             """
-            SELECT member_id, first_name, last_name, village, phone
+            SELECT national_id, first_name, last_name, village, phone
             FROM members
             WHERE status = 'Active'
             ORDER BY village, first_name, last_name
@@ -429,7 +434,7 @@ def record_village_or_all_attendance():
         village = helpers.get_non_empty("Type village name exactly: ")
         member_rows = database.run_query(
             """
-            SELECT member_id, first_name, last_name, village, phone
+            SELECT national_id, first_name, last_name, village, phone
             FROM members
             WHERE status = 'Active' AND village = %s
             ORDER BY first_name, last_name
@@ -468,7 +473,7 @@ def record_village_or_all_attendance():
             SELECT attendance_id, status FROM attendance
             WHERE member_id = %s AND attendance_date = %s
             """,
-            (row["member_id"], attendance_date),
+            (row.get("member_id", row.get("national_id")), attendance_date),
             fetch="one"
         )
         if existing != None:
@@ -476,7 +481,7 @@ def record_village_or_all_attendance():
             skipped_existing = skipped_existing + 1
             continue
 
-        label = row["first_name"] + " " + row["last_name"] + " | ID " + str(row["member_id"]) + " | " + row["village"]
+        label = row["first_name"] + " " + row["last_name"] + " | ID " + str(row.get("member_id") or row.get("national_id")) + " | " + row["village"]
         status = ask_attendance_status(label)
         if status == None:
             skipped_manual = skipped_manual + 1
@@ -496,7 +501,7 @@ def record_village_or_all_attendance():
             INSERT INTO attendance (member_id, attendance_date, status, remarks)
             VALUES (%s, %s, %s, %s)
             """,
-            (row["member_id"], attendance_date, status, person_remark)
+            (row.get("member_id", row.get("national_id")), attendance_date, status, person_remark)
         )
         if result != None:
             saved = saved + 1
@@ -520,9 +525,9 @@ def find_member_for_summary():
     choice = input(languages.t("enter_choice")).strip()
 
     if choice == "1":
-        member_id = helpers.get_positive_int("Member ID: ")
+        member_id = helpers.get_required_national_id("National ID: ")
         return database.run_query(
-            "SELECT * FROM members WHERE member_id = %s",
+            "SELECT * FROM members WHERE national_id = %s",
             (member_id,),
             fetch="one"
         )
@@ -550,12 +555,12 @@ def member_lifetime_summary(member=None):
             helpers.pause()
             return
 
-    member_id = member["member_id"]
+    member_id = member["national_id"]
 
     print()
     print("=" * 50)
     print("MEMBER:", member["first_name"], member["last_name"])
-    print("ID:", member_id, "| Phone:", member["phone"])
+    print("National ID:", member_id, "| Phone:", member["phone"])
     print("Village:", member["village"], "| Cell:", member["cell_name"])
     print("Status:", member["status"], "| Registered:", member["date_registered"])
     print("=" * 50)
@@ -574,6 +579,11 @@ def member_lifetime_summary(member=None):
         (member_id,),
         fetch="one"
     )
+
+    if totals is None:
+        print("Could not retrieve attendance history. Check database connection.")
+        helpers.pause()
+        return
 
     total = int(totals["total_sessions"] or 0)
     if total == 0:
@@ -616,7 +626,7 @@ def member_lifetime_summary(member=None):
             100 * SUM(CASE WHEN a.status IN ('Present','Late') THEN 1 ELSE 0 END) / COUNT(*), 1
         ) AS village_pct
         FROM attendance a
-        JOIN members m ON a.member_id = m.member_id
+        JOIN members m ON a.member_id = m.national_id
         WHERE m.village = %s
         """,
         (member["village"],),
@@ -674,7 +684,7 @@ def member_own_history(member):
         FROM attendance WHERE member_id = %s
         ORDER BY attendance_date DESC
         """,
-        (member["member_id"],),
+        (member["national_id"],),
         fetch="all"
     )
     if rows == None or len(rows) == 0:

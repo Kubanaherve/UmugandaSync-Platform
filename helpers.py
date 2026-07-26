@@ -80,12 +80,22 @@ def get_int_in_range(prompt_text: str, min_value: int, max_value: int) -> int:
 
 
 def get_national_id(prompt_text: str) -> Optional[str]:
-    import languages
+    """Prompt for a National ID. Empty input returns None (optional fields)."""
     while True:
         text = input(prompt_text).strip()
         if text == "":
             return None
         is_valid, msg = validate_national_id(text)
+        if is_valid:
+            return msg
+        print(msg)
+
+
+def get_required_national_id(prompt_text: str) -> str:
+    """Prompt until a valid 16-digit Rwanda National ID is entered."""
+    while True:
+        text = input(prompt_text).strip()
+        is_valid, msg = validate_national_id(text if text else None)
         if is_valid:
             return msg
         print(msg)

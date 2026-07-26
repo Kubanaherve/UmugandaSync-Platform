@@ -46,7 +46,7 @@ def _write_csv(filepath: str, columns: list[str], rows: list[dict]) -> int:
 
 def export_members() -> None:
     helpers.print_line(languages.t("csv_export_members"))
-    rows = database.run_query("SELECT * FROM members ORDER BY member_id", fetch="all")
+    rows = database.run_query("SELECT * FROM members ORDER BY national_id", fetch="all")
     if not rows:
         print(languages.t("csv_no_data"))
     else:
@@ -66,7 +66,7 @@ def export_attendance() -> None:
         SELECT a.attendance_id, a.attendance_date, a.status, a.remarks,
                a.member_id, m.first_name, m.last_name
         FROM attendance a
-        JOIN members m ON a.member_id = m.member_id
+        JOIN members m ON a.member_id = m.national_id
         ORDER BY a.attendance_date DESC
         """,
         fetch="all",
@@ -89,7 +89,7 @@ def export_projects() -> None:
         """
         SELECT p.*, m.first_name, m.last_name
         FROM projects p
-        LEFT JOIN members m ON p.leader_member_id = m.member_id
+        LEFT JOIN members m ON p.leader_member_id = m.national_id
         ORDER BY p.project_id
         """,
         fetch="all",

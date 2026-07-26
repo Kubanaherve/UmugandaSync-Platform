@@ -74,8 +74,14 @@ def check_database_ready() -> bool:
         for i in range(1, 4):
             print(languages.t(f"setup{i}"))
         print()
-        helpers.tip("Or run: python3 setup_database.py")
+        helpers.tip("Or run: mysql -u root < database.sql")
         logger.warning("Database connection failed")
+        return False
+    if not database.ensure_schema():
+        print()
+        print(languages.t("setup_help"))
+        helpers.tip("Or run: mysql -u root < database.sql")
+        logger.warning("Database schema check failed")
         return False
     logger.info("Database connection successful")
     return True

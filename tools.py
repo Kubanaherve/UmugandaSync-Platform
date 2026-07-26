@@ -15,13 +15,12 @@ CONDITION_MAP = {
     "1": "Good",
     "2": "Needs Repair",
     "3": "Broken",
-    "4": "Lost",
 }
 
 
 def ask_condition_status(default=None):
     """Ask the user to pick a condition status. Falls back to default (or 'Good')."""
-    print("Condition: 1=Good  2=Needs Repair  3=Broken  4=Lost")
+    print("Condition: 1=Good  2=Needs Repair  3=Broken")
     cond_choice = input("Choose condition: ").strip()
     return CONDITION_MAP.get(cond_choice, default if default else "Good")
 
@@ -220,8 +219,8 @@ def borrow_tool():
         helpers.pause()
         return
 
-    if tool["condition_status"] == "Broken" or tool["condition_status"] == "Lost":
-        print("This tool cannot be borrowed (Broken/Lost).")
+    if tool["condition_status"] == "Broken":
+        print("This tool cannot be borrowed (Broken).")
         helpers.pause()
         return
 
@@ -230,7 +229,7 @@ def borrow_tool():
         helpers.pause()
         return
 
-    member_id = helpers.get_positive_int("Member ID borrowing: ")
+    member_id = helpers.get_required_national_id("National ID borrowing: ")
     if not members.member_exists(member_id):
         print("Member not found.")
         helpers.pause()
@@ -248,22 +247,26 @@ def borrow_tool():
         return
 
     borrow_date = helpers.today_string()
-
-    borrow_id = database.run_query(
-        """
-        INSERT INTO tool_borrows
-        (tool_id, member_id, quantity, borrow_date, return_date, status)
-        VALUES (%s, %s, %s, %s, NULL, 'Borrowed')
-        """,
-        (tool_id, member_id, quantity, borrow_date)
-    )
-    if borrow_id is None:
-        print("Failed to create borrow record.")
-        helpers.pause()
-        return
-
     new_available = tool["available_quantity"] - quantity
-    adjust_available_quantity(tool_id, new_available)
+
+    with database.transaction() as cursor:
+        if cursor is None:
+            print("Database error. Could not connect.")
+            helpers.pause()
+            return
+        cursor.execute(
+            """
+            INSERT INTO tool_borrows
+            (tool_id, member_id, quantity, borrow_date, return_date, status)
+            VALUES (%s, %s, %s, %s, NULL, 'Borrowed')
+            """,
+            (tool_id, member_id, quantity, borrow_date)
+        )
+        cursor.execute(
+            "UPDATE tools SET available_quantity = %s WHERE tool_id = %s",
+            (new_available, tool_id)
+        )
+
     print("Borrowed successfully. Remaining available:", new_available)
 
     if new_available <= tool["low_stock_limit"]:
@@ -297,20 +300,29 @@ def return_tool():
         return
 
     return_date = helpers.today_string()
-    database.run_query(
-        """
-        UPDATE tool_borrows
-        SET status='Returned', return_date=%s
-        WHERE borrow_id=%s
-        """,
-        (return_date, borrow_id)
-    )
-
     new_available = min(
         borrow["available_quantity"] + borrow["quantity"],
         borrow["total_quantity"]
     )
-    adjust_available_quantity(borrow["tool_id"], new_available)
+
+    with database.transaction() as cursor:
+        if cursor is None:
+            print("Database error. Could not connect.")
+            helpers.pause()
+            return
+        cursor.execute(
+            """
+            UPDATE tool_borrows
+            SET status='Returned', return_date=%s
+            WHERE borrow_id=%s
+            """,
+            (return_date, borrow_id)
+        )
+        cursor.execute(
+            "UPDATE tools SET available_quantity = %s WHERE tool_id = %s",
+            (new_available, borrow["tool_id"])
+        )
+
     print("Returned:", borrow["tool_name"], "x", borrow["quantity"])
     print("Available now:", new_available)
     helpers.pause()
@@ -351,7 +363,7 @@ def view_borrow_history():
                t.tool_name, m.first_name, m.last_name
         FROM tool_borrows b
         JOIN tools t ON b.tool_id = t.tool_id
-        JOIN members m ON b.member_id = m.member_id
+        JOIN members m ON b.member_id = m.national_id
         ORDER BY b.borrow_id DESC
         """,
         fetch="all"

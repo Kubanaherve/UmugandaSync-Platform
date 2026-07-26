@@ -68,7 +68,7 @@ def search_members() -> None:
     if text.isdigit():
         rows = database.run_query(
             """SELECT * FROM members
-               WHERE member_id = %s OR phone LIKE %s
+               WHERE national_id = %s OR phone LIKE %s
                   OR first_name LIKE %s OR last_name LIKE %s""",
             (int(text), like_text, like_text, like_text),
             fetch="all",
@@ -127,7 +127,7 @@ def search_member_by_national_id(national_id: str) -> Optional[dict[str, Any]]:
     if not is_valid:
         return None
     row = database.run_query(
-        """SELECT member_id, national_id, first_name, last_name, phone,
+        """SELECT national_id, first_name, last_name, phone,
                   village, cell_name, gender, status, date_registered
            FROM members WHERE national_id = %s""",
         (result,),
@@ -153,7 +153,7 @@ def search_by_email() -> None:
             continue
 
         row = _safe_db_query(
-            """SELECT member_id, national_id, first_name, last_name, phone,
+            """SELECT national_id, first_name, last_name, phone,
                       village, cell_name, gender, status, date_registered
                FROM members WHERE email = %s""",
             (clean_email,),
@@ -193,7 +193,7 @@ def _display_detailed_member(row: dict[str, Any]) -> None:
         """SELECT COUNT(*) as total_events,
                   SUM(CASE WHEN status = 'Present' THEN 1 ELSE 0 END) as present_count
            FROM attendance WHERE member_id = %s""",
-        (row["member_id"],),
+        (row["national_id"],),
         fetch="one",
     )
 
@@ -215,14 +215,13 @@ def _display_member_results(rows: Any) -> None:
         print(languages.t("no_results"))
     else:
         for row in rows:
-            nid = row["national_id"] if row["national_id"] else "N/A"
+            nid = str(row["national_id"]) if row["national_id"] else "N/A"
             print(
-                "ID:", str(row["member_id"]).rjust(4),
+                "NID:", nid,
                 "|", row["first_name"].ljust(15), row["last_name"].ljust(15),
                 "|", row["phone"].ljust(12),
                 "|", row["village"].ljust(12),
                 "|", row["status"].ljust(10),
-                "| NID:", nid,
             )
         print()
         helpers.success(languages.t("total") + ": " + str(len(rows)))
@@ -289,7 +288,7 @@ def search_attendance_date() -> None:
     rows = database.run_query(
         """SELECT a.attendance_date, a.status, a.remarks, m.first_name, m.last_name
            FROM attendance a
-           JOIN members m ON a.member_id = m.member_id
+           JOIN members m ON a.member_id = m.national_id
            WHERE a.attendance_date = %s
            ORDER BY m.first_name""",
         (the_date,),
@@ -317,7 +316,7 @@ def quick_search(search_term: str) -> dict[str, list[dict[str, Any]]]:
     like_text = f"%{search_term}%"
 
     members = database.run_query(
-        """SELECT member_id, first_name, last_name, phone, status
+        """SELECT national_id, first_name, last_name, phone, status
            FROM members
            WHERE first_name LIKE %s OR last_name LIKE %s OR phone LIKE %s""",
         (like_text, like_text, like_text),

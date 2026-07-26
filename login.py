@@ -92,14 +92,16 @@ def member_login() -> Optional[dict]:
     member_key = "member"
 
     while remaining > 0:
-        member_id = helpers.get_positive_int(languages.t("member_id_prompt"))
+        national_id = helpers.get_required_national_id(
+            languages.t("member_id_prompt", fallback="Your National ID: ")
+        )
         phone = helpers.get_non_empty(languages.t("member_phone_prompt"))
 
         row = database.run_query(
             """SELECT *
                FROM members
-               WHERE member_id = %s AND phone = %s""",
-            (member_id, phone),
+               WHERE national_id = %s AND phone = %s""",
+            (national_id, phone),
             fetch="one",
         )
 
@@ -107,19 +109,19 @@ def member_login() -> Optional[dict]:
             if row["status"] != "Active":
                 helpers.error(languages.t("member_inactive"))
                 logger.warning(
-                    f"Inactive member ID {member_id} attempted login"
+                    f"Inactive member NID {national_id} attempted login"
                 )
                 helpers.pause()
                 return None
 
             ATTEMPT_STORE[member_key] = 0
             full_name = f"{row['first_name']} {row['last_name']}"
-            logger.info(f"Member '{full_name}' (ID {member_id}) logged in")
+            logger.info(f"Member '{full_name}' (NID {national_id}) logged in")
             helpers.success(
                 languages.t("member_login_ok") + " " + full_name + "!"
             )
             print(f"  Village: {row['village']} | Cell: {row['cell_name']}")
-            print(f"  Phone  : {row['phone']} | ID: {row['member_id']}")
+            print(f"  Phone  : {row['phone']} | National ID: {row['national_id']}")
             helpers.pause()
             return row
 

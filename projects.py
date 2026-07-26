@@ -212,21 +212,24 @@ def validate_date_range(start_date: str, end_date: str) -> None:
         )
 
 
-def validate_leader_id(leader_id: Any) -> int:
+def validate_leader_id(leader_id: Any) -> str:
     """
-    Validate leader member id is a positive integer.
+    Validate leader National ID is exactly 16 digits.
 
     Raises
     ------
     ProjectValidationError
     """
-    try:
-        value = int(leader_id)
-    except (TypeError, ValueError) as exc:
-        raise ProjectValidationError("Leader member ID must be an integer.") from exc
-    if value <= 0:
-        raise ProjectValidationError("Leader member ID must be positive.")
-    return value
+    if leader_id is None or str(leader_id).strip() == "":
+        raise ProjectValidationError(
+            "Leader National ID is required (exactly 16 digits)."
+        )
+    cleaned = str(leader_id).strip()
+    if not cleaned.isdigit() or len(cleaned) != 16:
+        raise ProjectValidationError(
+            "Leader National ID must be exactly 16 digits."
+        )
+    return cleaned
 
 
 def derive_status_from_progress(current_status: str, percent: int) -> str:
@@ -279,10 +282,10 @@ def _query(
         raise ProjectDataError(f"Database query failed: {exc}") from exc
 
 
-def member_exists(member_id: int) -> bool:
+def member_exists(member_id: str) -> bool:
     """Return True if member_id exists in members."""
     row = _query(
-        "SELECT member_id FROM members WHERE member_id = %s",
+        "SELECT national_id FROM members WHERE national_id = %s",
         (member_id,),
         fetch="one",
     )
@@ -306,7 +309,7 @@ def get_project_by_id(project_id: int) -> Optional[dict[str, Any]]:
         """
         SELECT p.*, m.first_name, m.last_name
         FROM projects p
-        LEFT JOIN members m ON p.leader_member_id = m.member_id
+        LEFT JOIN members m ON p.leader_member_id = m.national_id
         WHERE p.project_id = %s
         """,
         (project_id,),
@@ -334,7 +337,7 @@ def fetch_all_projects() -> list[dict[str, Any]]:
         """
         SELECT p.*, m.first_name, m.last_name
         FROM projects p
-        LEFT JOIN members m ON p.leader_member_id = m.member_id
+        LEFT JOIN members m ON p.leader_member_id = m.national_id
         ORDER BY p.start_date DESC
         """,
         fetch="all",
@@ -349,7 +352,7 @@ def fetch_projects_by_status(status: str) -> list[dict[str, Any]]:
         """
         SELECT p.*, m.first_name, m.last_name
         FROM projects p
-        LEFT JOIN members m ON p.leader_member_id = m.member_id
+        LEFT JOIN members m ON p.leader_member_id = m.national_id
         WHERE p.status = %s
         ORDER BY p.start_date DESC
         """,
@@ -374,7 +377,7 @@ def fetch_overdue_projects(today: Optional[str] = None) -> list[dict[str, Any]]:
         """
         SELECT p.*, m.first_name, m.last_name
         FROM projects p
-        LEFT JOIN members m ON p.leader_member_id = m.member_id
+        LEFT JOIN members m ON p.leader_member_id = m.national_id
         WHERE p.status IN ('Pending', 'Ongoing')
           AND p.expected_end_date < %s
         ORDER BY p.expected_end_date
@@ -398,7 +401,7 @@ def fetch_projects_nearing_deadline(
         """
         SELECT p.*, m.first_name, m.last_name
         FROM projects p
-        LEFT JOIN members m ON p.leader_member_id = m.member_id
+        LEFT JOIN members m ON p.leader_member_id = m.national_id
         WHERE p.status IN ('Pending', 'Ongoing')
           AND p.expected_end_date >= %s
           AND p.expected_end_date <= DATE_ADD(%s, INTERVAL %s DAY)
@@ -420,7 +423,7 @@ def search_projects_data(term: str) -> list[dict[str, Any]]:
         """
         SELECT p.*, m.first_name, m.last_name
         FROM projects p
-        LEFT JOIN members m ON p.leader_member_id = m.member_id
+        LEFT JOIN members m ON p.leader_member_id = m.national_id
         WHERE p.project_name LIKE %s OR p.location LIKE %s
         ORDER BY p.project_name
         """,
@@ -435,7 +438,7 @@ def insert_project(
     project_name: str,
     description: Optional[str],
     location: str,
-    leader_member_id: int,
+    leader_member_id: str,
     start_date: str,
     expected_end_date: str,
     status: str = "Pending",
@@ -656,7 +659,7 @@ def create_project_record(
     project_name: str,
     description: Optional[str],
     location: str,
-    leader_member_id: int,
+    leader_member_id: str,
     start_date: str,
     expected_end_date: str,
 ) -> int:
@@ -704,7 +707,7 @@ def edit_project_record(
     project_name: Optional[str] = None,
     description: Optional[str] = None,
     location: Optional[str] = None,
-    leader_member_id: Optional[int] = None,
+    leader_member_id: Optional[str] = None,
     start_date: Optional[str] = None,
     expected_end_date: Optional[str] = None,
     status: Optional[str] = None,
@@ -950,7 +953,7 @@ def register_project() -> None:
         project_name = helpers.get_non_empty(languages.t("project_name_prompt"))
         description = input(languages.t("project_desc_prompt")).strip()
         location = helpers.get_non_empty(languages.t("project_location_prompt"))
-        leader = helpers.get_positive_int(languages.t("project_leader_prompt"))
+        leader = helpers.get_required_national_id(languages.t("project_leader_prompt"))
         start_date = helpers.get_date(languages.t("project_start_prompt"))
         end_date = helpers.get_date(languages.t("project_end_prompt"))
 
@@ -1011,7 +1014,7 @@ def edit_project() -> None:
             project_name=name_in or None,
             description=desc_in.strip() if desc_in.strip() else None,
             location=loc_in or None,
-            leader_member_id=int(leader_in) if leader_in else None,
+            leader_member_id=leader_in.strip() if leader_in else None,
             start_date=start_in or None,
             expected_end_date=end_in or None,
             status=status_in or None,

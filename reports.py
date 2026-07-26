@@ -281,12 +281,12 @@ def build_most_active_members(limit: int = 10) -> list[dict[str, Any]]:
         limit = 10
     return _query(
         """
-        SELECT m.member_id, m.first_name, m.last_name, m.village,
+        SELECT m.national_id, m.first_name, m.last_name, m.village,
                COUNT(*) AS active_count
         FROM attendance a
-        JOIN members m ON a.member_id = m.member_id
+        JOIN members m ON a.member_id = m.national_id
         WHERE a.status IN ('Present', 'Late')
-        GROUP BY m.member_id, m.first_name, m.last_name, m.village
+        GROUP BY m.national_id, m.first_name, m.last_name, m.village
         ORDER BY active_count DESC
         LIMIT %s
         """,
@@ -301,12 +301,12 @@ def build_poor_attendance(min_absents: int = 2) -> list[dict[str, Any]]:
         min_absents = 2
     return _query(
         """
-        SELECT m.member_id, m.first_name, m.last_name, m.phone,
+        SELECT m.national_id, m.first_name, m.last_name, m.phone,
                COUNT(*) AS absent_count
         FROM attendance a
-        JOIN members m ON a.member_id = m.member_id
+        JOIN members m ON a.member_id = m.national_id
         WHERE a.status = 'Absent'
-        GROUP BY m.member_id, m.first_name, m.last_name, m.phone
+        GROUP BY m.national_id, m.first_name, m.last_name, m.phone
         HAVING COUNT(*) >= %s
         ORDER BY absent_count DESC
         """,
@@ -387,7 +387,7 @@ def build_inventory_summary() -> dict[str, Any]:
         SELECT t.tool_name, m.first_name, m.last_name, b.quantity, b.borrow_date
         FROM tool_borrows b
         JOIN tools t ON b.tool_id = t.tool_id
-        JOIN members m ON b.member_id = m.member_id
+        JOIN members m ON b.member_id = m.national_id
         WHERE b.status = 'Borrowed'
         ORDER BY b.borrow_date
         """,
@@ -411,7 +411,7 @@ def build_attendance_by_village() -> list[dict[str, Any]]:
                  AS present_like,
                SUM(CASE WHEN a.status = 'Absent' THEN 1 ELSE 0 END) AS absents
         FROM attendance a
-        JOIN members m ON a.member_id = m.member_id
+        JOIN members m ON a.member_id = m.national_id
         GROUP BY m.village
         ORDER BY present_like DESC
         """,

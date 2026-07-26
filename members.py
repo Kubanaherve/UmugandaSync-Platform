@@ -1,24 +1,22 @@
 """
 members.py
-Owner: Sonia
 Member management module for UmugandaSync.
 
 Responsibilities
 ----------------
 - Register, update, deactivate/activate, delete, and search members.
-- Validate Rwandan National IDs, phone numbers, and email addresses.
+- Primary key is the 16-digit Rwanda National ID (national_id).
+- Validate National IDs, phone numbers, and email addresses.
 - Prevent duplicate registrations (by phone / national ID).
 - Provide CSV-ready export of member records for reporting.
-- Expose `member_exists(member_id)` for use by other modules
-  (Cynthia, Marvella, Rosette) exactly as before - signature preserved.
+- Expose `member_exists(national_id)` for use by other modules
+  (attendance, projects, tools) — argument is the National ID string.
 
 This module depends on:
 - database.run_query(sql, params=None, fetch=None) -> cursor/id/rows
-- helpers.*  (print_line, pause, get_non_empty, get_positive_int,
+- helpers.*  (print_line, pause, get_non_empty, get_required_national_id,
               confirm, today_string)
 - languages.t(key) for translated menu strings
-
-No changes are made to database.py, helpers.py, or languages.py.
 """
 
 import csv
@@ -31,12 +29,6 @@ import helpers
 import languages
 
 
-# --------------------------------------------------------------------------
-# Logging
-# --------------------------------------------------------------------------
-# A dedicated logger for this module so member-related events (creation,
-# updates, deletions, validation failures) are traceable without polluting
-# stdout, which is reserved for the interactive CLI output.
 logger = logging.getLogger("umugandasync.members")
 if not logger.handlers:
     _handler = logging.FileHandler("members.log", encoding="utf-8")
@@ -48,9 +40,6 @@ if not logger.handlers:
     logger.setLevel(logging.INFO)
 
 
-# --------------------------------------------------------------------------
-# Exceptions
-# --------------------------------------------------------------------------
 class MemberError(Exception):
     """Base exception for all member-related errors."""
 
@@ -64,33 +53,27 @@ class DuplicateMemberError(MemberError):
 
 
 class MemberNotFoundError(MemberError):
-    """Raised when a requested member_id does not exist."""
+    """Raised when a requested national_id does not exist."""
 
 
-# --------------------------------------------------------------------------
-# Validation helpers
-# --------------------------------------------------------------------------
 NATIONAL_ID_PATTERN = re.compile(r"^\d{16}$")
-# Accepts formats like 0788123456 or +250788123456 or 250788123456
 PHONE_PATTERN = re.compile(r"^(?:\+?250|0)7\d{8}$")
 EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 def validate_national_id(national_id):
     """
-    Validate a Rwandan National ID number.
+    Validate a Rwandan National ID number (required primary key).
 
-    Rules:
-        - Optional field (None or "" is allowed - caller decides).
-        - If provided, must be exactly 16 digits.
-
-    Returns the cleaned national_id (or None) on success.
+    Must be exactly 16 digits. Returns the cleaned national_id on success.
     Raises ValidationError on failure.
     """
-    if national_id is None or national_id == "":
-        return None
+    if national_id is None or str(national_id).strip() == "":
+        raise ValidationError(
+            "National ID is required and must be exactly 16 digits."
+        )
 
-    cleaned = national_id.strip()
+    cleaned = str(national_id).strip()
     if not NATIONAL_ID_PATTERN.match(cleaned):
         raise ValidationError(
             "Invalid National ID: must be exactly 16 digits."
@@ -99,13 +82,7 @@ def validate_national_id(national_id):
 
 
 def validate_phone(phone):
-    """
-    Validate a Rwandan phone number.
-
-    Accepts formats: 07XXXXXXXX, +2507XXXXXXXX, 2507XXXXXXXX.
-    Returns the cleaned phone number on success.
-    Raises ValidationError on failure.
-    """
+    """Validate a Rwandan phone number. Raises ValidationError on failure."""
     if phone is None:
         raise ValidationError("Phone number is required.")
 
@@ -119,13 +96,7 @@ def validate_phone(phone):
 
 
 def validate_email(email):
-    """
-    Validate an email address.
-
-    Email is optional: None or "" returns None.
-    Raises ValidationError if a non-empty value does not look like
-    a valid email address.
-    """
+    """Email is optional: None or "" returns None."""
     if email is None or email.strip() == "":
         return None
 
@@ -135,99 +106,80 @@ def validate_email(email):
     return cleaned
 
 
-# --------------------------------------------------------------------------
-# Reusable data-access helpers
-# --------------------------------------------------------------------------
-def get_member_by_id(member_id):
-    """
-    Fetch a single member row by ID.
-
-    Returns the row (dict-like) or None if not found.
-    """
+def get_member_by_id(national_id):
+    """Fetch a single member row by National ID (primary key)."""
     return database.run_query(
-        "SELECT * FROM members WHERE member_id = %s",
-        (member_id,),
+        "SELECT * FROM members WHERE national_id = %s",
+        (national_id,),
         fetch="one",
     )
 
 
-def require_member(member_id):
-    """
-    Fetch a member by ID, raising MemberNotFoundError if missing.
-
-    Use this instead of get_member_by_id() when the caller cannot
-    proceed without a valid member.
-    """
-    row = get_member_by_id(member_id)
+def require_member(national_id):
+    """Fetch a member by National ID, or raise MemberNotFoundError."""
+    row = get_member_by_id(national_id)
     if row is None:
-        raise MemberNotFoundError(f"No member found with ID {member_id}.")
+        raise MemberNotFoundError(
+            f"No member found with National ID {national_id}."
+        )
     return row
 
 
-def is_duplicate_phone(phone, exclude_member_id=None):
-    """
-    Check whether `phone` is already registered to another member.
-
-    exclude_member_id lets update flows ignore the member's own record.
-    """
-    if exclude_member_id is None:
+def is_duplicate_phone(phone, exclude_national_id=None):
+    """Check whether phone is already registered to another member."""
+    if exclude_national_id is None:
         row = database.run_query(
-            "SELECT member_id FROM members WHERE phone = %s",
+            "SELECT national_id FROM members WHERE phone = %s",
             (phone,),
             fetch="one",
         )
     else:
         row = database.run_query(
-            "SELECT member_id FROM members WHERE phone = %s AND member_id <> %s",
-            (phone, exclude_member_id),
+            """
+            SELECT national_id FROM members
+            WHERE phone = %s AND national_id <> %s
+            """,
+            (phone, exclude_national_id),
             fetch="one",
         )
     return row is not None
 
 
-def is_duplicate_national_id(national_id, exclude_member_id=None):
-    """
-    Check whether `national_id` is already registered to another member.
-    Skipped automatically when national_id is None (optional field).
-    """
+def is_duplicate_national_id(national_id, exclude_national_id=None):
+    """Check whether national_id is already registered."""
     if national_id is None:
         return False
 
-    if exclude_member_id is None:
+    if exclude_national_id is None:
         row = database.run_query(
-            "SELECT member_id FROM members WHERE national_id = %s",
+            "SELECT national_id FROM members WHERE national_id = %s",
             (national_id,),
             fetch="one",
         )
     else:
         row = database.run_query(
-            "SELECT member_id FROM members WHERE national_id = %s AND member_id <> %s",
-            (national_id, exclude_member_id),
+            """
+            SELECT national_id FROM members
+            WHERE national_id = %s AND national_id <> %s
+            """,
+            (national_id, exclude_national_id),
             fetch="one",
         )
     return row is not None
 
 
-def member_exists(member_id):
+def member_exists(national_id):
     """
-    Return True/False for whether a member_id exists.
+    Return True/False for whether a National ID exists.
 
-    Preserved for other modules (Cynthia, Marvella, Rosette) that
-    already depend on this exact function name and signature.
+    Other modules pass the 16-digit National ID — the same value stored
+    as member_id in attendance / tool_borrows / projects.leader_member_id.
     """
-    return get_member_by_id(member_id) is not None
+    return get_member_by_id(national_id) is not None
 
 
-# --------------------------------------------------------------------------
-# CSV export
-# --------------------------------------------------------------------------
 def members_to_csv(rows):
-    """
-    Convert a list of member row dicts into a CSV-formatted string.
-
-    Useful for reporting/export features elsewhere in the project.
-    Returns an empty string if `rows` is empty or None.
-    """
+    """Convert member rows to a CSV string."""
     if not rows:
         return ""
 
@@ -241,13 +193,9 @@ def members_to_csv(rows):
 
 
 def export_members_csv(filepath="members_export.csv"):
-    """
-    Query all members and write them to a CSV file on disk.
-
-    Returns the number of members exported.
-    """
+    """Query all members and write them to a CSV file on disk."""
     rows = database.run_query(
-        "SELECT * FROM members ORDER BY member_id", fetch="all"
+        "SELECT * FROM members ORDER BY national_id", fetch="all"
     )
     csv_text = members_to_csv(rows)
     with open(filepath, "w", encoding="utf-8", newline="") as f:
@@ -258,9 +206,6 @@ def export_members_csv(filepath="members_export.csv"):
     return count
 
 
-# --------------------------------------------------------------------------
-# Menu
-# --------------------------------------------------------------------------
 def member_menu():
     """Interactive CLI menu for member management."""
     running = True
@@ -296,21 +241,15 @@ def member_menu():
             print(languages.t("invalid_choice"))
 
 
-# --------------------------------------------------------------------------
-# Create
-# --------------------------------------------------------------------------
 def add_member():
-    """
-    Interactive flow to register a new member.
-
-    Validates National ID (optional), phone (required), and email
-    (optional) before insert. Prevents duplicate phone/National ID.
-    """
+    """Register a new member. National ID (16 digits) is the primary key."""
     helpers.print_line("ADD MEMBER")
 
     try:
-        national_id_raw = input("National ID (optional, Enter to skip): ").strip()
-        national_id = validate_national_id(national_id_raw)
+        national_id = helpers.get_required_national_id(
+            "National ID (16 digits): "
+        )
+        national_id = validate_national_id(national_id)
 
         first_name = helpers.get_non_empty("First name: ")
         last_name = helpers.get_non_empty("Last name: ")
@@ -321,13 +260,13 @@ def add_member():
         email_raw = input("Email (optional, Enter to skip): ").strip()
         email = validate_email(email_raw)
 
-        if is_duplicate_phone(phone):
-            raise DuplicateMemberError(
-                "This phone number is already registered."
-            )
         if is_duplicate_national_id(national_id):
             raise DuplicateMemberError(
                 "This National ID is already registered."
+            )
+        if is_duplicate_phone(phone):
+            raise DuplicateMemberError(
+                "This phone number is already registered."
             )
 
         village = helpers.get_non_empty("Village: ")
@@ -349,13 +288,13 @@ def add_member():
             village, cell_name, gender, date_registered,
         )
 
-        print("Member added successfully. Member ID:", new_id)
+        print("Member added successfully. National ID:", new_id)
         logger.info(
-            "Added member #%s (%s %s, phone=%s).",
+            "Added member %s (%s %s, phone=%s).",
             new_id, first_name, last_name, phone,
         )
 
-    except (ValidationError, DuplicateMemberError) as exc:
+    except MemberError as exc:
         print("Error:", exc)
         logger.warning("add_member failed: %s", exc)
 
@@ -364,11 +303,7 @@ def add_member():
 
 def _insert_member(national_id, first_name, last_name, phone, email,
                     village, cell_name, gender, date_registered):
-    """
-    Low-level insert. Kept separate from add_member() so it is
-    reusable (e.g. for bulk import features) without re-prompting
-    the user for input.
-    """
+    """Low-level insert. Returns the national_id primary key on success."""
     sql = """
         INSERT INTO members
         (national_id, first_name, last_name, phone, email, village,
@@ -379,35 +314,37 @@ def _insert_member(national_id, first_name, last_name, phone, email,
         national_id, first_name, last_name, phone, email,
         village, cell_name, gender, date_registered,
     )
-    new_id = database.run_query(sql, values)
-    if new_id is None:
+    result = database.run_query(sql, values)
+    if result is None:
         raise MemberError("Database insert failed for new member.")
-    return new_id
+    return national_id
 
 
-# --------------------------------------------------------------------------
-# Read
-# --------------------------------------------------------------------------
 def view_members():
     """Display all members in a simple tabular text listing."""
     helpers.print_line("ALL MEMBERS")
-    rows = database.run_query("SELECT * FROM members ORDER BY member_id", fetch="all")
+    rows = database.run_query(
+        "SELECT * FROM members ORDER BY last_name, first_name", fetch="all"
+    )
 
     if not rows:
         print("No members found.")
     else:
         for row in rows:
-            print(row["member_id"], "|", row["first_name"], row["last_name"], "|",
-                  row["phone"], "|", row["village"], "/", row["cell_name"], "|",
-                  row["gender"], "|", row["status"])
+            print(
+                row["national_id"], "|",
+                row["first_name"], row["last_name"], "|",
+                row["phone"], "|", row["village"], "/", row["cell_name"], "|",
+                row["gender"], "|", row["status"],
+            )
         print("Total members:", len(rows))
     helpers.pause()
 
 
 def search_member():
-    """Interactive search by Member ID, Name, or Phone."""
+    """Interactive search by National ID, Name, or Phone."""
     helpers.print_line("SEARCH MEMBER")
-    print("1. By Member ID")
+    print("1. By National ID")
     print("2. By Name")
     print("3. By Phone")
     choice = input("Enter choice: ").strip()
@@ -425,23 +362,23 @@ def search_member():
         print("No member found.")
     else:
         for row in rows:
-            print("ID:", row["member_id"], "| Name:", row["first_name"], row["last_name"],
-                  "| Phone:", row["phone"], "| Village:", row["village"],
-                  "| Status:", row["status"])
+            print(
+                "NID:", row["national_id"],
+                "| Name:", row["first_name"], row["last_name"],
+                "| Phone:", row["phone"],
+                "| Village:", row["village"],
+                "| Status:", row["status"],
+            )
     helpers.pause()
 
 
 def _run_search(choice):
-    """
-    Execute the actual DB query for search_member() based on menu
-    choice. Split out so the search logic is unit-testable and
-    reusable without going through input() prompts.
-    """
+    """Execute the DB query for search_member() based on menu choice."""
     if choice == "1":
-        member_id = helpers.get_positive_int("Member ID: ")
+        national_id = helpers.get_required_national_id("National ID: ")
         return database.run_query(
-            "SELECT * FROM members WHERE member_id = %s",
-            (member_id,),
+            "SELECT * FROM members WHERE national_id = %s",
+            (national_id,),
             fetch="all",
         )
     elif choice == "2":
@@ -467,16 +404,15 @@ def _run_search(choice):
     return None
 
 
-# --------------------------------------------------------------------------
-# Update
-# --------------------------------------------------------------------------
 def update_member():
     """Interactive flow to update an existing member's editable fields."""
     helpers.print_line("UPDATE MEMBER")
 
     try:
-        member_id = helpers.get_positive_int("Member ID to update: ")
-        row = require_member(member_id)
+        national_id = helpers.get_required_national_id(
+            "National ID to update: "
+        )
+        row = require_member(national_id)
 
         print("Current:", row["first_name"], row["last_name"], row["phone"])
         first_name = helpers.get_non_empty("New first name: ")
@@ -491,26 +427,26 @@ def update_member():
         village = helpers.get_non_empty("New village: ")
         cell_name = helpers.get_non_empty("New cell: ")
 
-        if is_duplicate_phone(phone, exclude_member_id=member_id):
+        if is_duplicate_phone(phone, exclude_national_id=national_id):
             raise DuplicateMemberError(
                 "Phone already used by another member."
             )
 
         _update_member_row(
-            member_id, first_name, last_name, phone, email,
+            national_id, first_name, last_name, phone, email,
             village, cell_name,
         )
         print("Member updated successfully.")
-        logger.info("Updated member #%s.", member_id)
+        logger.info("Updated member %s.", national_id)
 
-    except (ValidationError, DuplicateMemberError, MemberNotFoundError) as exc:
+    except MemberError as exc:
         print("Error:", exc)
         logger.warning("update_member failed: %s", exc)
 
     helpers.pause()
 
 
-def _update_member_row(member_id, first_name, last_name, phone, email,
+def _update_member_row(national_id, first_name, last_name, phone, email,
                         village, cell_name):
     """Low-level UPDATE statement, isolated for reuse/testing."""
     result = database.run_query(
@@ -518,31 +454,26 @@ def _update_member_row(member_id, first_name, last_name, phone, email,
         UPDATE members
         SET first_name=%s, last_name=%s, phone=%s, email=%s,
             village=%s, cell_name=%s
-        WHERE member_id=%s
+        WHERE national_id=%s
         """,
-        (first_name, last_name, phone, email, village, cell_name, member_id),
+        (first_name, last_name, phone, email, village, cell_name, national_id),
     )
     if result is None:
-        raise MemberError(f"Database update failed for member #{member_id}.")
+        raise MemberError(
+            f"Database update failed for member {national_id}."
+        )
     return result
 
 
-# --------------------------------------------------------------------------
-# Delete
-# --------------------------------------------------------------------------
 def delete_member():
-    """
-    Interactive flow to permanently delete a member.
-
-    If deletion fails (e.g. due to foreign-key constraints from
-    attendance/borrow records), the user is advised to deactivate
-    the member instead.
-    """
+    """Interactive flow to permanently delete a member."""
     helpers.print_line("DELETE MEMBER")
 
     try:
-        member_id = helpers.get_positive_int("Member ID to delete: ")
-        row = require_member(member_id)
+        national_id = helpers.get_required_national_id(
+            "National ID to delete: "
+        )
+        row = require_member(national_id)
 
         print("You will delete:", row["first_name"], row["last_name"])
         ok = helpers.confirm("Are you sure? This cannot be undone")
@@ -552,57 +483,51 @@ def delete_member():
             return
 
         result = database.run_query(
-            "DELETE FROM members WHERE member_id = %s",
-            (member_id,),
+            "DELETE FROM members WHERE national_id = %s",
+            (national_id,),
         )
         if result is not None:
             print("Member deleted.")
-            logger.info("Deleted member #%s.", member_id)
+            logger.info("Deleted member %s.", national_id)
         else:
             print("Could not delete. Maybe they have attendance or borrows.")
             print("Tip: deactivate the member instead.")
             logger.warning(
-                "Delete blocked for member #%s (likely FK constraint).",
-                member_id,
+                "Delete blocked for member %s (likely FK constraint).",
+                national_id,
             )
 
-    except MemberNotFoundError as exc:
+    except MemberError as exc:
         print("Error:", exc)
         logger.warning("delete_member failed: %s", exc)
 
     helpers.pause()
 
 
-# --------------------------------------------------------------------------
-# Status (activate / deactivate)
-# --------------------------------------------------------------------------
 def set_member_status(new_status):
-    """
-    Set a member's status to 'Active' or 'Inactive'.
-
-    Shared implementation backing both the Deactivate (6) and
-    Activate (7) menu options.
-    """
+    """Set a member's status to 'Active' or 'Inactive'."""
     helpers.print_line("SET MEMBER STATUS: " + new_status)
 
     try:
-        member_id = helpers.get_positive_int("Member ID: ")
-        require_member(member_id)
+        national_id = helpers.get_required_national_id("National ID: ")
+        require_member(national_id)
 
         result = database.run_query(
-            "UPDATE members SET status = %s WHERE member_id = %s",
-            (new_status, member_id),
+            "UPDATE members SET status = %s WHERE national_id = %s",
+            (new_status, national_id),
         )
         if result is not None:
             print("Member status changed to", new_status)
-            logger.info("Member #%s status set to %s.", member_id, new_status)
+            logger.info(
+                "Member %s status set to %s.", national_id, new_status
+            )
         else:
             print("Failed to update status.")
             logger.warning(
-                "Status update failed for member #%s.", member_id
+                "Status update failed for member %s.", national_id
             )
 
-    except MemberNotFoundError as exc:
+    except MemberError as exc:
         print("Error:", exc)
         logger.warning("set_member_status failed: %s", exc)
 
