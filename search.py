@@ -70,7 +70,7 @@ def search_members() -> None:
             """SELECT * FROM members
                WHERE national_id = %s OR phone LIKE %s
                   OR first_name LIKE %s OR last_name LIKE %s""",
-            (int(text), like_text, like_text, like_text),
+            (text, like_text, like_text, like_text),
             fetch="all",
         )
     else:
