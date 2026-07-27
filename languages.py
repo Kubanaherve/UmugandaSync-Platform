@@ -1,6 +1,8 @@
 import logging
 from typing import Optional
 
+from helpers import input_with_exit
+
 logger = logging.getLogger(__name__)
 
 current_language: str = "en"
@@ -1108,7 +1110,7 @@ def choose_language() -> None:
     print(t("lang_option_en"))
     print(t("lang_option_fr"))
     print(t("lang_option_rw"))
-    choice = input(t("lang_prompt")).strip()
+    choice = input_with_exit(t("lang_prompt"))
 
     if choice == "1":
         current_language = "en"

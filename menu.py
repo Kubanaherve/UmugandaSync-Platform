@@ -2,6 +2,7 @@ import logging
 from typing import Optional
 
 import languages
+from helpers import input_with_exit
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +35,7 @@ def show_main_menu() -> None:
 def get_choice(prompt_text: Optional[str] = None) -> str:
     if prompt_text is None:
         prompt_text = languages.t("enter_choice")
-    return input(prompt_text).strip()
+    return input_with_exit(prompt_text)
 
 
 def build_menu(title: str, items: list[tuple], width: int = 44) -> None:

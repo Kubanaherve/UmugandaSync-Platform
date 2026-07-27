@@ -4,6 +4,7 @@ from typing import Any, Callable, Optional
 import database
 import helpers
 import languages
+from helpers import ExitRequested
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +42,11 @@ def search_menu() -> None:
         print(languages.t("s5"))
         print(languages.t("s6"))
         print(languages.t("s0"))
-        choice = input(languages.t("enter_choice")).strip()
+        try:
+            choice = helpers.input_with_exit(languages.t("enter_choice"))
+        except ExitRequested:
+            running = False
+            continue
 
         if choice == "1":
             search_members()
@@ -89,35 +94,38 @@ def search_by_national_id() -> None:
     print(languages.t("s5_help"))
     print()
 
-    while True:
-        national_id = helpers.get_non_empty(languages.t("s5_prompt"))
-        if national_id == "0":
-            return
+    try:
+        while True:
+            national_id = helpers.get_non_empty(languages.t("s5_prompt"))
+            if national_id == "0":
+                return
 
-        is_valid, msg_or_nid = helpers.validate_national_id(national_id)
-        if not is_valid:
-            helpers.error(msg_or_nid)
+            is_valid, msg_or_nid = helpers.validate_national_id(national_id)
+            if not is_valid:
+                helpers.error(msg_or_nid)
+                print()
+                continue
+
+            helpers.info(languages.t("searching_id") + " " + msg_or_nid)
             print()
-            continue
 
-        helpers.info(languages.t("searching_id") + " " + msg_or_nid)
-        print()
+            row = search_member_by_national_id(msg_or_nid)
 
-        row = search_member_by_national_id(msg_or_nid)
-
-        if not row:
-            helpers.warning(languages.t("s5_not_found"))
-            print()
-            helpers.tip(languages.t("s5_not_found_tip"))
-            print()
-            choice = input(languages.t("search_again")).strip().lower()
-            if choice != "y":
+            if not row:
+                helpers.warning(languages.t("s5_not_found"))
+                print()
+                helpers.tip(languages.t("s5_not_found_tip"))
+                print()
+                choice = helpers.input_with_exit(languages.t("search_again")).strip().lower()
+                if choice != "y":
+                    break
+            else:
+                helpers.success(languages.t("s5_found"))
+                print()
+                _display_detailed_member(row)
                 break
-        else:
-            helpers.success(languages.t("s5_found"))
-            print()
-            _display_detailed_member(row)
-            break
+    except ExitRequested:
+        print("Search cancelled.")
 
     helpers.pause()
 
@@ -141,38 +149,41 @@ def search_by_email() -> None:
     print(languages.t("s6_help"))
     print()
 
-    while True:
-        email_input = helpers.get_non_empty(languages.t("s6_prompt"))
-        if email_input == "0":
-            break
-
-        is_valid, clean_email = helpers.validate_email(email_input)
-        if not is_valid:
-            helpers.error(clean_email)
-            print()
-            continue
-
-        row = _safe_db_query(
-            """SELECT national_id, first_name, last_name, phone,
-                      village, cell_name, gender, status, date_registered
-               FROM members WHERE email = %s""",
-            (clean_email,),
-            fetch="one",
-        )
-
-        if not row:
-            helpers.warning(languages.t("s6_not_found"))
-            print()
-            helpers.tip(languages.t("s6_not_found_tip"))
-            print()
-            choice = input(languages.t("search_again")).strip().lower()
-            if choice != "y":
+    try:
+        while True:
+            email_input = helpers.get_non_empty(languages.t("s6_prompt"))
+            if email_input == "0":
                 break
-        else:
-            helpers.success(languages.t("s6_found"))
-            print()
-            _display_detailed_member(row)
-            break
+
+            is_valid, clean_email = helpers.validate_email(email_input)
+            if not is_valid:
+                helpers.error(clean_email)
+                print()
+                continue
+
+            row = _safe_db_query(
+                """SELECT national_id, first_name, last_name, phone,
+                          village, cell_name, gender, status, date_registered
+                   FROM members WHERE email = %s""",
+                (clean_email,),
+                fetch="one",
+            )
+
+            if not row:
+                helpers.warning(languages.t("s6_not_found"))
+                print()
+                helpers.tip(languages.t("s6_not_found_tip"))
+                print()
+                choice = helpers.input_with_exit(languages.t("search_again")).strip().lower()
+                if choice != "y":
+                    break
+            else:
+                helpers.success(languages.t("s6_found"))
+                print()
+                _display_detailed_member(row)
+                break
+    except ExitRequested:
+        print("Search cancelled.")
 
     helpers.pause()
 

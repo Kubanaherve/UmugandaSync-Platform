@@ -33,6 +33,7 @@ from typing import Any, Optional
 import database
 import helpers
 import languages
+from helpers import ExitRequested
 
 logger = logging.getLogger(__name__)
 
@@ -951,7 +952,7 @@ def register_project() -> None:
     helpers.print_line(languages.t("p1"))
     try:
         project_name = helpers.get_non_empty(languages.t("project_name_prompt"))
-        description = input(languages.t("project_desc_prompt")).strip()
+        description = helpers.input_with_exit(languages.t("project_desc_prompt"))
         location = helpers.get_non_empty(languages.t("project_location_prompt"))
         leader = helpers.get_required_national_id(languages.t("project_leader_prompt"))
         start_date = helpers.get_date(languages.t("project_start_prompt"))
@@ -966,6 +967,8 @@ def register_project() -> None:
             expected_end_date=end_date,
         )
         helpers.success(languages.t("project_added") + f" (ID: {new_id})")
+    except ExitRequested:
+        helpers.error("Operation cancelled. No project was saved.")
     except ProjectValidationError as exc:
         helpers.error(str(exc))
     except ProjectDataError as exc:
@@ -995,19 +998,19 @@ def edit_project() -> None:
             )
         )
 
-        name_in = input(languages.t("project_name_prompt")).strip()
-        desc_in = input(languages.t("project_desc_prompt"))
-        loc_in = input(languages.t("project_location_prompt")).strip()
-        leader_in = input(languages.t("project_leader_prompt")).strip()
-        start_in = input(
+        name_in = helpers.input_with_exit(languages.t("project_name_prompt"))
+        desc_in = helpers.input_with_exit(languages.t("project_desc_prompt"))
+        loc_in = helpers.input_with_exit(languages.t("project_location_prompt"))
+        leader_in = helpers.input_with_exit(languages.t("project_leader_prompt"))
+        start_in = helpers.input_with_exit(
             languages.t("project_start_prompt") + " (YYYY-MM-DD): "
-        ).strip()
-        end_in = input(
+        )
+        end_in = helpers.input_with_exit(
             languages.t("project_end_prompt") + " (YYYY-MM-DD): "
-        ).strip()
-        status_in = input(
+        )
+        status_in = helpers.input_with_exit(
             languages.t("status_prompt", fallback="Status: ")
-        ).strip()
+        )
 
         updated = edit_project_record(
             project_id,
@@ -1023,6 +1026,8 @@ def edit_project() -> None:
             languages.t("project_updated")
             + f" (P#{updated['project_id']})"
         )
+    except ExitRequested:
+        helpers.error("Operation cancelled. No changes were saved.")
     except ProjectNotFoundError:
         helpers.error(languages.t("project_not_found"))
     except (ProjectValidationError, ValueError) as exc:
@@ -1063,6 +1068,8 @@ def search_projects() -> None:
     try:
         term = helpers.get_non_empty(languages.t("search_term_prompt"))
         _display_projects(search_projects_data(term))
+    except ExitRequested:
+        helpers.error("Operation cancelled.")
     except ProjectValidationError as exc:
         helpers.error(str(exc))
     helpers.pause()
@@ -1098,6 +1105,8 @@ def update_project_progress() -> None:
             languages.t("project_updated")
             + f" → {updated['percent_complete']}% ({updated['status']})"
         )
+    except ExitRequested:
+        helpers.error("Operation cancelled.")
     except ProjectNotFoundError:
         helpers.error(languages.t("project_not_found"))
     except ProjectValidationError as exc:
@@ -1117,6 +1126,8 @@ def mark_project_completed() -> None:
         if helpers.confirm(languages.t("are_you_sure")):
             complete_project(project_id)
             helpers.success(languages.t("project_completed"))
+    except ExitRequested:
+        helpers.error("Operation cancelled.")
     except ProjectNotFoundError:
         helpers.error(languages.t("project_not_found"))
     except ProjectDataError:
@@ -1134,6 +1145,8 @@ def delete_project() -> None:
         if helpers.confirm(languages.t("are_you_sure")):
             delete_project_by_id(project_id)
             helpers.success(languages.t("project_deleted"))
+    except ExitRequested:
+        helpers.error("Operation cancelled.")
     except ProjectNotFoundError:
         helpers.error(languages.t("project_not_found"))
     except ProjectDataError:
@@ -1159,6 +1172,8 @@ def cancel_project_flow() -> None:
             helpers.success(
                 languages.t("project_cancelled", fallback="Project cancelled.")
             )
+    except ExitRequested:
+        helpers.error("Operation cancelled.")
     except ProjectNotFoundError:
         helpers.error(languages.t("project_not_found"))
     except ProjectValidationError as exc:
@@ -1222,7 +1237,11 @@ def project_menu() -> None:
             + languages.t("cancel_project_title", fallback="Cancel project")
         )
         print(languages.t("p0"))
-        choice = input(languages.t("enter_choice")).strip()
+        try:
+            choice = helpers.input_with_exit(languages.t("enter_choice"))
+        except ExitRequested:
+            running = False
+            continue
 
         if choice == "1":
             register_project()

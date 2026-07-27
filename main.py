@@ -18,6 +18,7 @@ import reports
 import helpers
 import languages
 import config
+from helpers import ExitRequested
 
 logger = logging.getLogger(__name__)
 
@@ -102,7 +103,12 @@ def run_admin_session(session: AppSession) -> str:
 
     while session.running:
         menu.show_main_menu()
-        choice = menu.get_choice()
+        try:
+            choice = menu.get_choice()
+        except ExitRequested:
+            print(languages.t("goodbye"))
+            session.end()
+            return "exit"
 
         if choice == "1":
             members.member_menu()
@@ -116,7 +122,7 @@ def run_admin_session(session: AppSession) -> str:
             print()
             print("  a. " + languages.t("menu_reports_sub"))
             print("  b. " + languages.t("menu_csv_export"))
-            sub = input("  (a/b): ").strip().lower()
+            sub = helpers.input_with_exit("  (a/b): ").lower()
             if sub == "b":
                 csv_export.show_csv_export_menu()
             else:
@@ -155,7 +161,12 @@ def run_member_session(session: AppSession) -> str:
 
     while session.running:
         login.show_member_menu()
-        choice = menu.get_choice()
+        try:
+            choice = menu.get_choice()
+        except ExitRequested:
+            print(languages.t("goodbye"))
+            session.end()
+            return "exit"
 
         if choice == "1":
             helpers.clear_screen()
@@ -187,7 +198,10 @@ def main() -> None:
     logger.info(f"{config.APP_NAME} v{config.APP_VERSION} starting")
 
     helpers.clear_screen()
-    languages.choose_language()
+    try:
+        languages.choose_language()
+    except ExitRequested:
+        languages.set_language("en")
 
     if not check_database_ready():
         return

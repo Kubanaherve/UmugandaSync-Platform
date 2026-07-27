@@ -27,6 +27,7 @@ import re
 import database
 import helpers
 import languages
+from helpers import ExitRequested
 
 
 logger = logging.getLogger("umugandasync.members")
@@ -219,7 +220,11 @@ def member_menu():
         print(languages.t("m6"))
         print(languages.t("m7"))
         print(languages.t("m0"))
-        choice = input(languages.t("enter_choice")).strip()
+        try:
+            choice = helpers.input_with_exit(languages.t("enter_choice"))
+        except ExitRequested:
+            running = False
+            continue
 
         if choice == "1":
             add_member()
@@ -257,7 +262,7 @@ def add_member():
         phone_raw = helpers.get_non_empty("Phone number: ")
         phone = validate_phone(phone_raw)
 
-        email_raw = input("Email (optional, Enter to skip): ").strip()
+        email_raw = helpers.input_with_exit("Email (optional, Enter to skip): ")
         email = validate_email(email_raw)
 
         if is_duplicate_national_id(national_id):
@@ -273,7 +278,7 @@ def add_member():
         cell_name = helpers.get_non_empty("Cell: ")
 
         print("Gender: 1=Male  2=Female  3=Other")
-        g = input("Choose gender: ").strip()
+        g = helpers.input_with_exit("Choose gender: ")
         if g == "1":
             gender = "Male"
         elif g == "2":
@@ -294,6 +299,8 @@ def add_member():
             new_id, first_name, last_name, phone,
         )
 
+    except ExitRequested:
+        print("Operation cancelled. No member was added.")
     except MemberError as exc:
         print("Error:", exc)
         logger.warning("add_member failed: %s", exc)
@@ -347,12 +354,16 @@ def search_member():
     print("1. By National ID")
     print("2. By Name")
     print("3. By Phone")
-    choice = input("Enter choice: ").strip()
+    choice = helpers.input_with_exit("Enter choice: ")
 
     try:
         rows = _run_search(choice)
     except ValidationError as exc:
         print("Error:", exc)
+        helpers.pause()
+        return
+    except ExitRequested:
+        print("Search cancelled.")
         helpers.pause()
         return
 
@@ -421,7 +432,7 @@ def update_member():
         phone_raw = helpers.get_non_empty("New phone: ")
         phone = validate_phone(phone_raw)
 
-        email_raw = input("New email (optional, Enter to skip): ").strip()
+        email_raw = helpers.input_with_exit("New email (optional, Enter to skip): ")
         email = validate_email(email_raw)
 
         village = helpers.get_non_empty("New village: ")
@@ -439,6 +450,8 @@ def update_member():
         print("Member updated successfully.")
         logger.info("Updated member %s.", national_id)
 
+    except ExitRequested:
+        print("Operation cancelled. No changes were saved.")
     except MemberError as exc:
         print("Error:", exc)
         logger.warning("update_member failed: %s", exc)
@@ -497,6 +510,8 @@ def delete_member():
                 national_id,
             )
 
+    except ExitRequested:
+        print("Operation cancelled.")
     except MemberError as exc:
         print("Error:", exc)
         logger.warning("delete_member failed: %s", exc)
@@ -527,6 +542,8 @@ def set_member_status(new_status):
                 "Status update failed for member %s.", national_id
             )
 
+    except ExitRequested:
+        print("Operation cancelled.")
     except MemberError as exc:
         print("Error:", exc)
         logger.warning("set_member_status failed: %s", exc)

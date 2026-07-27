@@ -19,6 +19,7 @@ import database
 import helpers
 import languages
 import config
+from helpers import ExitRequested
 
 logger = logging.getLogger(__name__)
 
@@ -141,7 +142,11 @@ def show_csv_export_menu() -> None:
         print(languages.t("csv_e3"))
         print(languages.t("csv_e4"))
         print(languages.t("csv_e0"))
-        choice = input(languages.t("enter_choice")).strip()
+        try:
+            choice = helpers.input_with_exit(languages.t("enter_choice"))
+        except ExitRequested:
+            running = False
+            continue
 
         if choice == "1":
             export_members()

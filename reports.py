@@ -34,6 +34,7 @@ from typing import Any, Optional
 import database
 import helpers
 import languages
+from helpers import ExitRequested
 
 logger = logging.getLogger(__name__)
 
@@ -919,7 +920,17 @@ def reports_menu() -> None:
             )
         )
         print(languages.t("r0", fallback="0. Back"))
-        choice = input(languages.t("enter_choice")).strip()
+        try:
+            choice = helpers.input_with_exit(languages.t("enter_choice"))
+        except ExitRequested:
+            print(
+                languages.t(
+                    "returning_main_menu",
+                    fallback="Returning to main menu...",
+                )
+            )
+            running = False
+            continue
 
         if choice == "1":
             community_summary()

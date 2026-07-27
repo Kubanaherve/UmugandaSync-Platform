@@ -7,6 +7,7 @@ import database
 import helpers
 import members
 import languages
+from helpers import ExitRequested
 
 
 def attendance_menu():
@@ -24,7 +25,11 @@ def attendance_menu():
         print(languages.t("a9"))
         print("10. " + languages.t("monthly_summary", fallback="Monthly Attendance Summary"))
         print(languages.t("a0"))
-        choice = input(languages.t("enter_choice")).strip()
+        try:
+            choice = helpers.input_with_exit(languages.t("enter_choice"))
+        except ExitRequested:
+            running = False
+            continue
 
         if choice == "1":
             record_attendance()
@@ -57,64 +62,67 @@ def record_attendance():
     helpers.print_line("RECORD UMUGANDA ATTENDANCE")
     helpers.tip("You only choose the month. Date is auto-set to last Saturday.")
 
-    member_id = helpers.get_required_national_id("National ID: ")
-    if members.member_exists(member_id) == False:
-        helpers.error("Member not found.")
-        helpers.pause()
-        return
+    try:
+        member_id = helpers.get_required_national_id("National ID: ")
+        if members.member_exists(member_id) == False:
+            helpers.error("Member not found.")
+            helpers.pause()
+            return
 
-    month_info = helpers.ask_umuganda_month()
-    if month_info == None:
-        helpers.pause()
-        return
+        month_info = helpers.ask_umuganda_month()
+        if month_info == None:
+            helpers.pause()
+            return
 
-    attendance_date = month_info[0]
-    month_name = month_info[3]
-    year = month_info[1]
+        attendance_date = month_info[0]
+        month_name = month_info[3]
+        year = month_info[1]
 
-    existing = database.run_query(
-        """
-        SELECT attendance_id FROM attendance
-        WHERE member_id = %s AND attendance_date = %s
-        """,
-        (member_id, attendance_date),
-        fetch="one"
-    )
-    if existing != None:
-        helpers.error("Attendance already recorded for this member on that Umuganda.")
-        helpers.pause()
-        return
+        existing = database.run_query(
+            """
+            SELECT attendance_id FROM attendance
+            WHERE member_id = %s AND attendance_date = %s
+            """,
+            (member_id, attendance_date),
+            fetch="one"
+        )
+        if existing != None:
+            helpers.error("Attendance already recorded for this member on that Umuganda.")
+            helpers.pause()
+            return
 
-    print("Status: 1=Present  2=Absent  3=Excused  4=Late")
-    status_choice = input("Choose status: ").strip()
-    if status_choice == "1":
-        status = "Present"
-    elif status_choice == "2":
-        status = "Absent"
-    elif status_choice == "3":
-        status = "Excused"
-    elif status_choice == "4":
-        status = "Late"
-    else:
-        helpers.error("Invalid status.")
-        helpers.pause()
-        return
+        print("Status: 1=Present  2=Absent  3=Excused  4=Late")
+        status_choice = helpers.input_with_exit("Choose status: ")
+        if status_choice == "1":
+            status = "Present"
+        elif status_choice == "2":
+            status = "Absent"
+        elif status_choice == "3":
+            status = "Excused"
+        elif status_choice == "4":
+            status = "Late"
+        else:
+            helpers.error("Invalid status.")
+            helpers.pause()
+            return
 
-    activity = helpers.choose_umuganda_remark()
-    remarks = "Umuganda " + month_name + " " + str(year) + " — " + activity
+        activity = helpers.choose_umuganda_remark()
+        remarks = "Umuganda " + month_name + " " + str(year) + " — " + activity
 
-    result = database.run_query(
-        """
-        INSERT INTO attendance (member_id, attendance_date, status, remarks)
-        VALUES (%s, %s, %s, %s)
-        """,
-        (member_id, attendance_date, status, remarks)
-    )
-    if result != None:
-        helpers.success("Attendance recorded for " + attendance_date)
-        print("  Remark:", remarks)
-    else:
-        helpers.error("Failed to record attendance.")
+        result = database.run_query(
+            """
+            INSERT INTO attendance (member_id, attendance_date, status, remarks)
+            VALUES (%s, %s, %s, %s)
+            """,
+            (member_id, attendance_date, status, remarks)
+        )
+        if result != None:
+            helpers.success("Attendance recorded for " + attendance_date)
+            print("  Remark:", remarks)
+        else:
+            helpers.error("Failed to record attendance.")
+    except ExitRequested:
+        print("Operation cancelled.")
     helpers.pause()
 
 
@@ -193,7 +201,7 @@ def search_attendance():
     helpers.print_line("SEARCH ATTENDANCE")
     print("1. By status (Present/Absent/Excused/Late)")
     print("2. By Umuganda month (last Saturday)")
-    choice = input("Enter choice: ").strip()
+    choice = helpers.input_with_exit("Enter choice: ")
     if choice == "1":
         status = helpers.get_non_empty("Status: ")
         rows = database.run_query(
@@ -219,51 +227,54 @@ def search_attendance():
 
 def member_attendance_percentage():
     helpers.print_line("ATTENDANCE PERCENTAGE")
-    member_id = helpers.get_required_national_id("National ID: ")
-    if members.member_exists(member_id) == False:
-        print("Member not found.")
-        helpers.pause()
-        return
+    try:
+        member_id = helpers.get_required_national_id("National ID: ")
+        if members.member_exists(member_id) == False:
+            print("Member not found.")
+            helpers.pause()
+            return
 
-    total_row = database.run_query(
-        "SELECT COUNT(*) AS total FROM attendance WHERE member_id = %s",
-        (member_id,),
-        fetch="one"
-    )
-    attended_row = database.run_query(
-        """
-        SELECT COUNT(*) AS attended FROM attendance
-        WHERE member_id = %s AND (status = 'Present' OR status = 'Late')
-        """,
-        (member_id,),
-        fetch="one"
-    )
-    missed_row = database.run_query(
-        """
-        SELECT COUNT(*) AS missed FROM attendance
-        WHERE member_id = %s AND status = 'Absent'
-        """,
-        (member_id,),
-        fetch="one"
-    )
+        total_row = database.run_query(
+            "SELECT COUNT(*) AS total FROM attendance WHERE member_id = %s",
+            (member_id,),
+            fetch="one"
+        )
+        attended_row = database.run_query(
+            """
+            SELECT COUNT(*) AS attended FROM attendance
+            WHERE member_id = %s AND (status = 'Present' OR status = 'Late')
+            """,
+            (member_id,),
+            fetch="one"
+        )
+        missed_row = database.run_query(
+            """
+            SELECT COUNT(*) AS missed FROM attendance
+            WHERE member_id = %s AND status = 'Absent'
+            """,
+            (member_id,),
+            fetch="one"
+        )
 
-    if total_row is None or attended_row is None or missed_row is None:
-        print("Could not retrieve attendance data. Check database connection.")
-        helpers.pause()
-        return
+        if total_row is None or attended_row is None or missed_row is None:
+            print("Could not retrieve attendance data. Check database connection.")
+            helpers.pause()
+            return
 
-    total = total_row["total"]
-    attended = attended_row["attended"]
-    missed = missed_row["missed"]
+        total = total_row["total"]
+        attended = attended_row["attended"]
+        missed = missed_row["missed"]
 
-    if total == 0:
-        print("No attendance records for this member yet.")
-    else:
-        percentage = (attended / total) * 100
-        print("Total sessions recorded:", total)
-        print("Attended (Present/Late):", attended)
-        print("Missed (Absent):", missed)
-        print("Attendance percentage:", round(percentage, 1), "%")
+        if total == 0:
+            print("No attendance records for this member yet.")
+        else:
+            percentage = (attended / total) * 100
+            print("Total sessions recorded:", total)
+            print("Attended (Present/Late):", attended)
+            print("Missed (Absent):", missed)
+            print("Attendance percentage:", round(percentage, 1), "%")
+    except ExitRequested:
+        print("Operation cancelled.")
     helpers.pause()
 
 
@@ -356,7 +367,7 @@ def ask_attendance_status(member_label):
     print(">>", member_label)
     print("1=Present  2=Absent  3=Excused  4=Late  5=Skip")
     print("Tip: press Enter = Present")
-    choice = input("Status: ").strip()
+    choice = helpers.input_with_exit("Status: ")
 
     if choice == "" or choice == "1":
         return "Present"
@@ -397,124 +408,127 @@ def record_village_or_all_attendance():
     helpers.print_line("UMUGANDA ROLL CALL (VILLAGE / ALL MEMBERS)")
     helpers.tip("Choose month only. Date becomes last Saturday automatically.")
 
-    month_info = helpers.ask_umuganda_month()
-    if month_info == None:
-        helpers.pause()
-        return
+    try:
+        month_info = helpers.ask_umuganda_month()
+        if month_info == None:
+            helpers.pause()
+            return
 
-    attendance_date = month_info[0]
-    month_name = month_info[3]
-    year = month_info[1]
+        attendance_date = month_info[0]
+        month_name = month_info[3]
+        year = month_info[1]
 
-    activity = helpers.choose_umuganda_remark()
-    session_remark = "Umuganda " + month_name + " " + str(year) + " — " + activity
+        activity = helpers.choose_umuganda_remark()
+        session_remark = "Umuganda " + month_name + " " + str(year) + " — " + activity
 
-    print()
-    print("Who should be marked for this Umuganda?")
-    print("1. ALL active members (whole community)")
-    print("2. ONE village only")
-    scope = input(languages.t("enter_choice")).strip()
+        print()
+        print("Who should be marked for this Umuganda?")
+        print("1. ALL active members (whole community)")
+        print("2. ONE village only")
+        scope = helpers.input_with_exit(languages.t("enter_choice"))
 
-    member_rows = None
-    scope_label = ""
+        member_rows = None
+        scope_label = ""
 
-    if scope == "1":
-        member_rows = database.run_query(
-            """
-            SELECT national_id, first_name, last_name, village, phone
-            FROM members
-            WHERE status = 'Active'
-            ORDER BY village, first_name, last_name
-            """,
-            fetch="all"
-        )
-        scope_label = "ALL villages"
-    elif scope == "2":
-        list_villages()
-        village = helpers.get_non_empty("Type village name exactly: ")
-        member_rows = database.run_query(
-            """
-            SELECT national_id, first_name, last_name, village, phone
-            FROM members
-            WHERE status = 'Active' AND village = %s
-            ORDER BY first_name, last_name
-            """,
-            (village,),
-            fetch="all"
-        )
-        scope_label = village
-    else:
-        helpers.error(languages.t("invalid_choice"))
-        helpers.pause()
-        return
-
-    if member_rows == None or len(member_rows) == 0:
-        helpers.error("No active members found.")
-        helpers.pause()
-        return
-
-    print()
-    print("Umuganda date:", attendance_date)
-    print("Activity:", session_remark)
-    print("Recording for:", scope_label)
-    print("People:", len(member_rows))
-    if helpers.confirm("Start marking now") == False:
-        print("Cancelled.")
-        helpers.pause()
-        return
-
-    saved = 0
-    skipped_existing = 0
-    skipped_manual = 0
-
-    for row in member_rows:
-        existing = database.run_query(
-            """
-            SELECT attendance_id, status FROM attendance
-            WHERE member_id = %s AND attendance_date = %s
-            """,
-            (row.get("member_id", row.get("national_id")), attendance_date),
-            fetch="one"
-        )
-        if existing != None:
-            print("Already saved:", row["first_name"], row["last_name"], "->", existing["status"])
-            skipped_existing = skipped_existing + 1
-            continue
-
-        label = row["first_name"] + " " + row["last_name"] + " | ID " + str(row.get("member_id") or row.get("national_id")) + " | " + row["village"]
-        status = ask_attendance_status(label)
-        if status == None:
-            skipped_manual = skipped_manual + 1
-            continue
-
-        # personal remark keeps activity + status note
-        person_remark = session_remark
-        if status == "Late":
-            person_remark = session_remark + " | Arrived late"
-        elif status == "Excused":
-            person_remark = session_remark + " | Excused absence"
-        elif status == "Absent":
-            person_remark = session_remark + " | Absent"
-
-        result = database.run_query(
-            """
-            INSERT INTO attendance (member_id, attendance_date, status, remarks)
-            VALUES (%s, %s, %s, %s)
-            """,
-            (row.get("member_id", row.get("national_id")), attendance_date, status, person_remark)
-        )
-        if result != None:
-            saved = saved + 1
-            print("Saved:", row["first_name"], "as", status)
+        if scope == "1":
+            member_rows = database.run_query(
+                """
+                SELECT national_id, first_name, last_name, village, phone
+                FROM members
+                WHERE status = 'Active'
+                ORDER BY village, first_name, last_name
+                """,
+                fetch="all"
+            )
+            scope_label = "ALL villages"
+        elif scope == "2":
+            list_villages()
+            village = helpers.get_non_empty("Type village name exactly: ")
+            member_rows = database.run_query(
+                """
+                SELECT national_id, first_name, last_name, village, phone
+                FROM members
+                WHERE status = 'Active' AND village = %s
+                ORDER BY first_name, last_name
+                """,
+                (village,),
+                fetch="all"
+            )
+            scope_label = village
         else:
-            print("Failed for", row["first_name"])
+            helpers.error(languages.t("invalid_choice"))
+            helpers.pause()
+            return
 
-    print()
-    print("=== UMUGANDA ROLL CALL DONE ===")
-    print("Date:", attendance_date)
-    print("Saved:", saved)
-    print("Already had record:", skipped_existing)
-    print("Skipped:", skipped_manual)
+        if member_rows == None or len(member_rows) == 0:
+            helpers.error("No active members found.")
+            helpers.pause()
+            return
+
+        print()
+        print("Umuganda date:", attendance_date)
+        print("Activity:", session_remark)
+        print("Recording for:", scope_label)
+        print("People:", len(member_rows))
+        if helpers.confirm("Start marking now") == False:
+            print("Cancelled.")
+            helpers.pause()
+            return
+
+        saved = 0
+        skipped_existing = 0
+        skipped_manual = 0
+
+        for row in member_rows:
+            existing = database.run_query(
+                """
+                SELECT attendance_id, status FROM attendance
+                WHERE member_id = %s AND attendance_date = %s
+                """,
+                (row.get("member_id", row.get("national_id")), attendance_date),
+                fetch="one"
+            )
+            if existing != None:
+                print("Already saved:", row["first_name"], row["last_name"], "->", existing["status"])
+                skipped_existing = skipped_existing + 1
+                continue
+
+            label = row["first_name"] + " " + row["last_name"] + " | ID " + str(row.get("member_id") or row.get("national_id")) + " | " + row["village"]
+            status = ask_attendance_status(label)
+            if status == None:
+                skipped_manual = skipped_manual + 1
+                continue
+
+            # personal remark keeps activity + status note
+            person_remark = session_remark
+            if status == "Late":
+                person_remark = session_remark + " | Arrived late"
+            elif status == "Excused":
+                person_remark = session_remark + " | Excused absence"
+            elif status == "Absent":
+                person_remark = session_remark + " | Absent"
+
+            result = database.run_query(
+                """
+                INSERT INTO attendance (member_id, attendance_date, status, remarks)
+                VALUES (%s, %s, %s, %s)
+                """,
+                (row.get("member_id", row.get("national_id")), attendance_date, status, person_remark)
+            )
+            if result != None:
+                saved = saved + 1
+                print("Saved:", row["first_name"], "as", status)
+            else:
+                print("Failed for", row["first_name"])
+
+        print()
+        print("=== UMUGANDA ROLL CALL DONE ===")
+        print("Date:", attendance_date)
+        print("Saved:", saved)
+        print("Already had record:", skipped_existing)
+        print("Skipped:", skipped_manual)
+    except ExitRequested:
+        print("Operation cancelled. No attendance was saved.")
     helpers.pause()
 
 
@@ -522,17 +536,26 @@ def find_member_for_summary():
     print("Find member by:")
     print("1. Member ID")
     print("2. Phone number")
-    choice = input(languages.t("enter_choice")).strip()
+    try:
+        choice = helpers.input_with_exit(languages.t("enter_choice"))
+    except ExitRequested:
+        return None
 
     if choice == "1":
-        member_id = helpers.get_required_national_id("National ID: ")
+        try:
+            member_id = helpers.get_required_national_id("National ID: ")
+        except ExitRequested:
+            return None
         return database.run_query(
             "SELECT * FROM members WHERE national_id = %s",
             (member_id,),
             fetch="one"
         )
     if choice == "2":
-        phone = helpers.get_non_empty("Phone number: ")
+        try:
+            phone = helpers.get_non_empty("Phone number: ")
+        except ExitRequested:
+            return None
         return database.run_query(
             "SELECT * FROM members WHERE phone = %s",
             (phone,),
@@ -546,132 +569,135 @@ def member_lifetime_summary(member=None):
     # if member already logged in we pass the member dict
     helpers.print_line("MEMBER PARTICIPATION SUMMARY (LIFETIME)")
 
-    if member == None:
-        print("Find by Member ID or phone.")
-        print()
-        member = find_member_for_summary()
+    try:
         if member == None:
-            print("Member not found.")
+            print("Find by Member ID or phone.")
+            print()
+            member = find_member_for_summary()
+            if member == None:
+                print("Member not found.")
+                helpers.pause()
+                return
+
+        member_id = member["national_id"]
+
+        print()
+        print("=" * 50)
+        print("MEMBER:", member["first_name"], member["last_name"])
+        print("National ID:", member_id, "| Phone:", member["phone"])
+        print("Village:", member["village"], "| Cell:", member["cell_name"])
+        print("Status:", member["status"], "| Registered:", member["date_registered"])
+        print("=" * 50)
+
+        totals = database.run_query(
+            """
+            SELECT
+              COUNT(*) AS total_sessions,
+              SUM(CASE WHEN status = 'Present' THEN 1 ELSE 0 END) AS present_count,
+              SUM(CASE WHEN status = 'Late' THEN 1 ELSE 0 END) AS late_count,
+              SUM(CASE WHEN status = 'Excused' THEN 1 ELSE 0 END) AS excused_count,
+              SUM(CASE WHEN status = 'Absent' THEN 1 ELSE 0 END) AS absent_count
+            FROM attendance
+            WHERE member_id = %s
+            """,
+            (member_id,),
+            fetch="one"
+        )
+
+        if totals is None:
+            print("Could not retrieve attendance history. Check database connection.")
             helpers.pause()
             return
 
-    member_id = member["national_id"]
+        total = int(totals["total_sessions"] or 0)
+        if total == 0:
+            print()
+            print("No attendance history yet.")
+            helpers.pause()
+            return
 
-    print()
-    print("=" * 50)
-    print("MEMBER:", member["first_name"], member["last_name"])
-    print("National ID:", member_id, "| Phone:", member["phone"])
-    print("Village:", member["village"], "| Cell:", member["cell_name"])
-    print("Status:", member["status"], "| Registered:", member["date_registered"])
-    print("=" * 50)
+        present = int(totals["present_count"] or 0)
+        late = int(totals["late_count"] or 0)
+        excused = int(totals["excused_count"] or 0)
+        absent = int(totals["absent_count"] or 0)
+        attended = present + late
+        percentage = (attended / total) * 100
 
-    totals = database.run_query(
-        """
-        SELECT
-          COUNT(*) AS total_sessions,
-          SUM(CASE WHEN status = 'Present' THEN 1 ELSE 0 END) AS present_count,
-          SUM(CASE WHEN status = 'Late' THEN 1 ELSE 0 END) AS late_count,
-          SUM(CASE WHEN status = 'Excused' THEN 1 ELSE 0 END) AS excused_count,
-          SUM(CASE WHEN status = 'Absent' THEN 1 ELSE 0 END) AS absent_count
-        FROM attendance
-        WHERE member_id = %s
-        """,
-        (member_id,),
-        fetch="one"
-    )
-
-    if totals is None:
-        print("Could not retrieve attendance history. Check database connection.")
-        helpers.pause()
-        return
-
-    total = int(totals["total_sessions"] or 0)
-    if total == 0:
         print()
-        print("No attendance history yet.")
-        helpers.pause()
-        return
+        print("--- OVERALL ---")
+        print("Total sessions:", total)
+        print("Present:", present)
+        print("Late:", late)
+        print("Excused:", excused)
+        print("Absent:", absent)
+        print("Attended (Present + Late):", attended)
+        print("Percentage:", round(percentage, 1), "%")
 
-    present = int(totals["present_count"] or 0)
-    late = int(totals["late_count"] or 0)
-    excused = int(totals["excused_count"] or 0)
-    absent = int(totals["absent_count"] or 0)
-    attended = present + late
-    percentage = (attended / total) * 100
+        dates = database.run_query(
+            """
+            SELECT MIN(attendance_date) AS first_date, MAX(attendance_date) AS last_date
+            FROM attendance WHERE member_id = %s
+            """,
+            (member_id,),
+            fetch="one"
+        )
+        print("First session:", dates["first_date"])
+        print("Last session:", dates["last_date"])
 
-    print()
-    print("--- OVERALL ---")
-    print("Total sessions:", total)
-    print("Present:", present)
-    print("Late:", late)
-    print("Excused:", excused)
-    print("Absent:", absent)
-    print("Attended (Present + Late):", attended)
-    print("Percentage:", round(percentage, 1), "%")
+        village_avg = database.run_query(
+            """
+            SELECT ROUND(
+                100 * SUM(CASE WHEN a.status IN ('Present','Late') THEN 1 ELSE 0 END) / COUNT(*), 1
+            ) AS village_pct
+            FROM attendance a
+            JOIN members m ON a.member_id = m.national_id
+            WHERE m.village = %s
+            """,
+            (member["village"],),
+            fetch="one"
+        )
+        if village_avg != None and village_avg["village_pct"] != None:
+            print("Village average:", village_avg["village_pct"], "%")
+            if percentage >= float(village_avg["village_pct"]):
+                print("You are at or above village average.")
+            else:
+                print("You are below village average.")
 
-    dates = database.run_query(
-        """
-        SELECT MIN(attendance_date) AS first_date, MAX(attendance_date) AS last_date
-        FROM attendance WHERE member_id = %s
-        """,
-        (member_id,),
-        fetch="one"
-    )
-    print("First session:", dates["first_date"])
-    print("Last session:", dates["last_date"])
+        print()
+        print("--- HISTORY ---")
+        history = database.run_query(
+            """
+            SELECT attendance_date, status, remarks
+            FROM attendance WHERE member_id = %s
+            ORDER BY attendance_date DESC
+            """,
+            (member_id,),
+            fetch="all"
+        )
+        for row in history:
+            extra = ""
+            if row["remarks"] != None:
+                extra = " | " + row["remarks"]
+            print(row["attendance_date"], "-", row["status"] + extra)
 
-    village_avg = database.run_query(
-        """
-        SELECT ROUND(
-            100 * SUM(CASE WHEN a.status IN ('Present','Late') THEN 1 ELSE 0 END) / COUNT(*), 1
-        ) AS village_pct
-        FROM attendance a
-        JOIN members m ON a.member_id = m.national_id
-        WHERE m.village = %s
-        """,
-        (member["village"],),
-        fetch="one"
-    )
-    if village_avg != None and village_avg["village_pct"] != None:
-        print("Village average:", village_avg["village_pct"], "%")
-        if percentage >= float(village_avg["village_pct"]):
-            print("You are at or above village average.")
+        print()
+        print("--- ABSENT DATES ---")
+        absents = database.run_query(
+            """
+            SELECT attendance_date FROM attendance
+            WHERE member_id = %s AND status = 'Absent'
+            ORDER BY attendance_date DESC
+            """,
+            (member_id,),
+            fetch="all"
+        )
+        if absents == None or len(absents) == 0:
+            print("No absences.")
         else:
-            print("You are below village average.")
-
-    print()
-    print("--- HISTORY ---")
-    history = database.run_query(
-        """
-        SELECT attendance_date, status, remarks
-        FROM attendance WHERE member_id = %s
-        ORDER BY attendance_date DESC
-        """,
-        (member_id,),
-        fetch="all"
-    )
-    for row in history:
-        extra = ""
-        if row["remarks"] != None:
-            extra = " | " + row["remarks"]
-        print(row["attendance_date"], "-", row["status"] + extra)
-
-    print()
-    print("--- ABSENT DATES ---")
-    absents = database.run_query(
-        """
-        SELECT attendance_date FROM attendance
-        WHERE member_id = %s AND status = 'Absent'
-        ORDER BY attendance_date DESC
-        """,
-        (member_id,),
-        fetch="all"
-    )
-    if absents == None or len(absents) == 0:
-        print("No absences.")
-    else:
-        for row in absents:
-            print("-", row["attendance_date"])
+            for row in absents:
+                print("-", row["attendance_date"])
+    except ExitRequested:
+        print("Operation cancelled.")
 
     helpers.pause()
 
@@ -703,7 +729,12 @@ def monthly_attendance_summary() -> None:
     print(languages.t("monthly_summary_help"))
     print()
 
-    month_info = helpers.ask_umuganda_month()
+    try:
+        month_info = helpers.ask_umuganda_month()
+    except ExitRequested:
+        print("Operation cancelled.")
+        helpers.pause()
+        return
     if month_info is None:
         helpers.pause()
         return

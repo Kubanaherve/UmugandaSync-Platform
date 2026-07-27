@@ -8,6 +8,17 @@ import config
 
 logger = logging.getLogger(__name__)
 
+
+class ExitRequested(Exception):
+    """Raised when a user types 'exit' to abort the current operation."""
+
+
+def input_with_exit(prompt_text: str) -> str:
+    value = input(prompt_text).strip()
+    if value.lower() == "exit":
+        raise ExitRequested()
+    return value
+
 UMUGANDA_ACTIVITIES: list[str] = [
     "Road cleaning and pothole filling",
     "Drainage clearing before rain season",
@@ -44,7 +55,7 @@ def pause() -> None:
 
 def confirm(question: str) -> bool:
     import languages
-    answer = input(question + languages.t("yn_prompt"))
+    answer = input_with_exit(question + languages.t("yn_prompt"))
     answer = answer.strip().lower()
     return answer in ("y", "yes", "o", "oui")
 
@@ -52,7 +63,7 @@ def confirm(question: str) -> bool:
 def get_non_empty(prompt_text: str) -> str:
     import languages
     while True:
-        value = input(prompt_text).strip()
+        value = input_with_exit(prompt_text)
         if value:
             return value
         print(languages.t("empty_input"))
@@ -61,7 +72,7 @@ def get_non_empty(prompt_text: str) -> str:
 def get_positive_int(prompt_text: str) -> int:
     import languages
     while True:
-        text = input(prompt_text).strip()
+        text = input_with_exit(prompt_text)
         if text.isdigit():
             return int(text)
         print(languages.t("invalid_number"))
@@ -70,7 +81,7 @@ def get_positive_int(prompt_text: str) -> int:
 def get_int_in_range(prompt_text: str, min_value: int, max_value: int) -> int:
     import languages
     while True:
-        text = input(prompt_text).strip()
+        text = input_with_exit(prompt_text)
         ok = text.isdigit() or (text.startswith("-") and len(text) > 1 and text[1:].isdigit())
         if ok:
             number = int(text)
@@ -82,7 +93,7 @@ def get_int_in_range(prompt_text: str, min_value: int, max_value: int) -> int:
 def get_national_id(prompt_text: str) -> Optional[str]:
     """Prompt for a National ID. Empty input returns None (optional fields)."""
     while True:
-        text = input(prompt_text).strip()
+        text = input_with_exit(prompt_text)
         if text == "":
             return None
         is_valid, msg = validate_national_id(text)
@@ -94,7 +105,7 @@ def get_national_id(prompt_text: str) -> Optional[str]:
 def get_required_national_id(prompt_text: str) -> str:
     """Prompt until a valid 16-digit Rwanda National ID is entered."""
     while True:
-        text = input(prompt_text).strip()
+        text = input_with_exit(prompt_text)
         is_valid, msg = validate_national_id(text if text else None)
         if is_valid:
             return msg
@@ -104,7 +115,7 @@ def get_required_national_id(prompt_text: str) -> str:
 def get_date(prompt_text: str) -> str:
     import languages
     while True:
-        text = input(prompt_text + languages.t("date_prompt")).strip()
+        text = input_with_exit(prompt_text + languages.t("date_prompt"))
         try:
             datetime.strptime(text, "%Y-%m-%d")
             return text
@@ -133,7 +144,7 @@ def ask_umuganda_month() -> Optional[tuple[str, int, int, str]]:
     print()
 
     current_year = datetime.now().year
-    year_text = input("Year (Enter for " + str(current_year) + "): ").strip()
+    year_text = input_with_exit("Year (Enter for " + str(current_year) + "): ")
     if year_text == "":
         year = current_year
     else:
@@ -244,7 +255,7 @@ def sanitize_string(text: Optional[str]) -> str:
 
 
 def get_optional_input(prompt_text: str, default: Optional[str] = None) -> Optional[str]:
-    text = input(prompt_text).strip()
+    text = input_with_exit(prompt_text)
     return text if text else default
 
 

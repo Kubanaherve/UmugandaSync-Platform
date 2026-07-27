@@ -6,6 +6,7 @@ import helpers
 import menu
 import languages
 import config
+from helpers import ExitRequested
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,10 @@ def choose_entry_type() -> Optional[str]:
     helpers.tip("Admin manages the whole village system.")
     helpers.tip("Member only views personal Umuganda record.")
     print()
-    choice = input(languages.t("entry_prompt")).strip()
+    try:
+        choice = helpers.input_with_exit(languages.t("entry_prompt"))
+    except ExitRequested:
+        return "exit"
 
     if choice == "1":
         logger.debug("User selected admin entry")

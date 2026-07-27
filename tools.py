@@ -9,6 +9,7 @@ import database
 import helpers
 import members
 import languages
+from helpers import ExitRequested
 
 
 CONDITION_MAP = {
@@ -21,7 +22,7 @@ CONDITION_MAP = {
 def ask_condition_status(default=None):
     """Ask the user to pick a condition status. Falls back to default (or 'Good')."""
     print("Condition: 1=Good  2=Needs Repair  3=Broken")
-    cond_choice = input("Choose condition: ").strip()
+    cond_choice = helpers.input_with_exit("Choose condition: ")
     return CONDITION_MAP.get(cond_choice, default if default else "Good")
 
 
@@ -66,7 +67,11 @@ def tools_menu():
         print(languages.t("t7"))
         print(languages.t("t8"))
         print(languages.t("t0"))
-        choice = input(languages.t("enter_choice")).strip()
+        try:
+            choice = helpers.input_with_exit(languages.t("enter_choice"))
+        except ExitRequested:
+            running = False
+            continue
 
         actions = {
             "1": add_tool,
@@ -90,37 +95,40 @@ def tools_menu():
 def add_tool():
     """Register a brand new tool in the inventory."""
     helpers.print_line("REGISTER TOOL")
-    tool_name = helpers.get_non_empty("Tool name: ")
-    category = helpers.get_non_empty("Category: ")
-    total_quantity = helpers.get_positive_int("Total quantity: ")
-    if total_quantity <= 0:
-        print("Quantity must be greater than 0.")
-        helpers.pause()
-        return
+    try:
+        tool_name = helpers.get_non_empty("Tool name: ")
+        category = helpers.get_non_empty("Category: ")
+        total_quantity = helpers.get_positive_int("Total quantity: ")
+        if total_quantity <= 0:
+            print("Quantity must be greater than 0.")
+            helpers.pause()
+            return
 
-    available_quantity = total_quantity
-    condition_status = ask_condition_status()
-    low_stock_limit = helpers.get_positive_int("Low stock limit: ")
+        available_quantity = total_quantity
+        condition_status = ask_condition_status()
+        low_stock_limit = helpers.get_positive_int("Low stock limit: ")
 
-    if low_stock_limit > total_quantity:
-        print("Warning: low stock limit is higher than total quantity.")
+        if low_stock_limit > total_quantity:
+            print("Warning: low stock limit is higher than total quantity.")
 
-    result = database.run_query(
-        """
-        INSERT INTO tools
-        (tool_name, category, total_quantity, available_quantity,
-         condition_status, low_stock_limit)
-        VALUES (%s, %s, %s, %s, %s, %s)
-        """,
-        (
-            tool_name, category, total_quantity, available_quantity,
-            condition_status, low_stock_limit
+        result = database.run_query(
+            """
+            INSERT INTO tools
+            (tool_name, category, total_quantity, available_quantity,
+             condition_status, low_stock_limit)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            """,
+            (
+                tool_name, category, total_quantity, available_quantity,
+                condition_status, low_stock_limit
+            )
         )
-    )
-    if result is not None:
-        print("Tool registered. ID:", result)
-    else:
-        print("Failed to register tool.")
+        if result is not None:
+            print("Tool registered. ID:", result)
+        else:
+            print("Failed to register tool.")
+    except ExitRequested:
+        print("Operation cancelled. No tool was added.")
     helpers.pause()
 
 
@@ -142,135 +150,144 @@ def view_tools():
 def update_tool():
     """Edit an existing tool's details, with basic consistency checks."""
     helpers.print_line("UPDATE TOOL")
-    tool_id = helpers.get_positive_int("Tool ID: ")
-    row = get_tool_by_id(tool_id)
-    if row is None:
-        print("Tool not found.")
-        helpers.pause()
-        return
+    try:
+        tool_id = helpers.get_positive_int("Tool ID: ")
+        row = get_tool_by_id(tool_id)
+        if row is None:
+            print("Tool not found.")
+            helpers.pause()
+            return
 
-    print("Current:", row["tool_name"],
-          "available", row["available_quantity"], "/", row["total_quantity"])
+        print("Current:", row["tool_name"],
+              "available", row["available_quantity"], "/", row["total_quantity"])
 
-    tool_name = helpers.get_non_empty("Tool name: ")
-    category = helpers.get_non_empty("Category: ")
-    total_quantity = helpers.get_positive_int("Total quantity: ")
-    available_quantity = helpers.get_positive_int("Available quantity: ")
+        tool_name = helpers.get_non_empty("Tool name: ")
+        category = helpers.get_non_empty("Category: ")
+        total_quantity = helpers.get_positive_int("Total quantity: ")
+        available_quantity = helpers.get_positive_int("Available quantity: ")
 
-    if available_quantity > total_quantity:
-        print("Error: available cannot be greater than total.")
-        helpers.pause()
-        return
+        if available_quantity > total_quantity:
+            print("Error: available cannot be greater than total.")
+            helpers.pause()
+            return
 
-    condition_status = ask_condition_status(default=row["condition_status"])
-    low_stock_limit = helpers.get_positive_int("Low stock limit: ")
+        condition_status = ask_condition_status(default=row["condition_status"])
+        low_stock_limit = helpers.get_positive_int("Low stock limit: ")
 
-    result = database.run_query(
-        """
-        UPDATE tools
-        SET tool_name=%s, category=%s, total_quantity=%s,
-            available_quantity=%s, condition_status=%s, low_stock_limit=%s
-        WHERE tool_id=%s
-        """,
-        (
-            tool_name, category, total_quantity, available_quantity,
-            condition_status, low_stock_limit, tool_id
+        result = database.run_query(
+            """
+            UPDATE tools
+            SET tool_name=%s, category=%s, total_quantity=%s,
+                available_quantity=%s, condition_status=%s, low_stock_limit=%s
+            WHERE tool_id=%s
+            """,
+            (
+                tool_name, category, total_quantity, available_quantity,
+                condition_status, low_stock_limit, tool_id
+            )
         )
-    )
-    if result is not None:
-        print("Tool updated.")
-    else:
-        print("Update failed.")
+        if result is not None:
+            print("Tool updated.")
+        else:
+            print("Update failed.")
+    except ExitRequested:
+        print("Operation cancelled. No changes were saved.")
     helpers.pause()
 
 
 def delete_tool():
     """Remove a tool from the inventory after confirmation."""
     helpers.print_line("DELETE TOOL")
-    tool_id = helpers.get_positive_int("Tool ID: ")
-    row = get_tool_by_id(tool_id)
-    if row is None:
-        print("Tool not found.")
-        helpers.pause()
-        return
+    try:
+        tool_id = helpers.get_positive_int("Tool ID: ")
+        row = get_tool_by_id(tool_id)
+        if row is None:
+            print("Tool not found.")
+            helpers.pause()
+            return
 
-    print("Delete tool:", row["tool_name"])
-    if helpers.confirm("Are you sure") is True:
-        result = database.run_query(
-            "DELETE FROM tools WHERE tool_id = %s",
-            (tool_id,)
-        )
-        if result is not None:
-            print("Tool deleted.")
+        print("Delete tool:", row["tool_name"])
+        if helpers.confirm("Are you sure") is True:
+            result = database.run_query(
+                "DELETE FROM tools WHERE tool_id = %s",
+                (tool_id,)
+            )
+            if result is not None:
+                print("Tool deleted.")
+            else:
+                print("Could not delete. There may be borrow history linked.")
         else:
-            print("Could not delete. There may be borrow history linked.")
-    else:
-        print("Cancelled.")
+            print("Cancelled.")
+    except ExitRequested:
+        print("Operation cancelled.")
     helpers.pause()
 
 
 def borrow_tool():
     """Borrow a tool for a member, reducing the available stock."""
     helpers.print_line("BORROW TOOL")
-    tool_id = helpers.get_positive_int("Tool ID: ")
-    tool = get_tool_by_id(tool_id)
-    if tool is None:
-        print("Tool not found.")
-        helpers.pause()
-        return
-
-    if tool["condition_status"] == "Broken":
-        print("This tool cannot be borrowed (Broken).")
-        helpers.pause()
-        return
-
-    if tool["available_quantity"] <= 0:
-        print("No available stock for this tool.")
-        helpers.pause()
-        return
-
-    member_id = helpers.get_required_national_id("National ID borrowing: ")
-    if not members.member_exists(member_id):
-        print("Member not found.")
-        helpers.pause()
-        return
-
-    quantity = helpers.get_positive_int("Quantity to borrow: ")
-    if quantity <= 0:
-        print("Quantity must be greater than 0.")
-        helpers.pause()
-        return
-
-    if quantity > tool["available_quantity"]:
-        print("Not enough stock. Available:", tool["available_quantity"])
-        helpers.pause()
-        return
-
-    borrow_date = helpers.today_string()
-    new_available = tool["available_quantity"] - quantity
-
-    with database.transaction() as cursor:
-        if cursor is None:
-            print("Database error. Could not connect.")
+    try:
+        tool_id = helpers.get_positive_int("Tool ID: ")
+        tool = get_tool_by_id(tool_id)
+        if tool is None:
+            print("Tool not found.")
             helpers.pause()
             return
-        cursor.execute(
-            """
-            INSERT INTO tool_borrows
-            (tool_id, member_id, quantity, borrow_date, return_date, status)
-            VALUES (%s, %s, %s, %s, NULL, 'Borrowed')
-            """,
-            (tool_id, member_id, quantity, borrow_date)
-        )
-        cursor.execute(
-            "UPDATE tools SET available_quantity = %s WHERE tool_id = %s",
-            (new_available, tool_id)
-        )
 
-    print("Borrowed successfully. Remaining available:", new_available)
+        if tool["condition_status"] == "Broken":
+            print("This tool cannot be borrowed (Broken).")
+            helpers.pause()
+            return
 
-    if new_available <= tool["low_stock_limit"]:
-        print("WARNING: stock is now low for", tool["tool_name"])
+        if tool["available_quantity"] <= 0:
+            print("No available stock for this tool.")
+            helpers.pause()
+            return
+
+        member_id = helpers.get_required_national_id("National ID borrowing: ")
+        if not members.member_exists(member_id):
+            print("Member not found.")
+            helpers.pause()
+            return
+
+        quantity = helpers.get_positive_int("Quantity to borrow: ")
+        if quantity <= 0:
+            print("Quantity must be greater than 0.")
+            helpers.pause()
+            return
+
+        if quantity > tool["available_quantity"]:
+            print("Not enough stock. Available:", tool["available_quantity"])
+            helpers.pause()
+            return
+
+        borrow_date = helpers.today_string()
+        new_available = tool["available_quantity"] - quantity
+
+        with database.transaction() as cursor:
+            if cursor is None:
+                print("Database error. Could not connect.")
+                helpers.pause()
+                return
+            cursor.execute(
+                """
+                INSERT INTO tool_borrows
+                (tool_id, member_id, quantity, borrow_date, return_date, status)
+                VALUES (%s, %s, %s, %s, NULL, 'Borrowed')
+                """,
+                (tool_id, member_id, quantity, borrow_date)
+            )
+            cursor.execute(
+                "UPDATE tools SET available_quantity = %s WHERE tool_id = %s",
+                (new_available, tool_id)
+            )
+
+        print("Borrowed successfully. Remaining available:", new_available)
+
+        if new_available <= tool["low_stock_limit"]:
+            print("WARNING: stock is now low for", tool["tool_name"])
+    except ExitRequested:
+        print("Operation cancelled. No borrow was recorded.")
 
     helpers.pause()
 
@@ -278,53 +295,56 @@ def borrow_tool():
 def return_tool():
     """Mark a borrow record as returned and restore stock (capped at total)."""
     helpers.print_line("RETURN TOOL")
-    borrow_id = helpers.get_positive_int("Borrow ID to return: ")
-    borrow = database.run_query(
-        """
-        SELECT b.*, t.tool_name, t.available_quantity, t.total_quantity
-        FROM tool_borrows b
-        JOIN tools t ON b.tool_id = t.tool_id
-        WHERE b.borrow_id = %s
-        """,
-        (borrow_id,),
-        fetch="one"
-    )
-    if borrow is None:
-        print("Borrow record not found.")
-        helpers.pause()
-        return
-
-    if borrow["status"] != "Borrowed":
-        print("This borrow is already returned.")
-        helpers.pause()
-        return
-
-    return_date = helpers.today_string()
-    new_available = min(
-        borrow["available_quantity"] + borrow["quantity"],
-        borrow["total_quantity"]
-    )
-
-    with database.transaction() as cursor:
-        if cursor is None:
-            print("Database error. Could not connect.")
+    try:
+        borrow_id = helpers.get_positive_int("Borrow ID to return: ")
+        borrow = database.run_query(
+            """
+            SELECT b.*, t.tool_name, t.available_quantity, t.total_quantity
+            FROM tool_borrows b
+            JOIN tools t ON b.tool_id = t.tool_id
+            WHERE b.borrow_id = %s
+            """,
+            (borrow_id,),
+            fetch="one"
+        )
+        if borrow is None:
+            print("Borrow record not found.")
             helpers.pause()
             return
-        cursor.execute(
-            """
-            UPDATE tool_borrows
-            SET status='Returned', return_date=%s
-            WHERE borrow_id=%s
-            """,
-            (return_date, borrow_id)
-        )
-        cursor.execute(
-            "UPDATE tools SET available_quantity = %s WHERE tool_id = %s",
-            (new_available, borrow["tool_id"])
+
+        if borrow["status"] != "Borrowed":
+            print("This borrow is already returned.")
+            helpers.pause()
+            return
+
+        return_date = helpers.today_string()
+        new_available = min(
+            borrow["available_quantity"] + borrow["quantity"],
+            borrow["total_quantity"]
         )
 
-    print("Returned:", borrow["tool_name"], "x", borrow["quantity"])
-    print("Available now:", new_available)
+        with database.transaction() as cursor:
+            if cursor is None:
+                print("Database error. Could not connect.")
+                helpers.pause()
+                return
+            cursor.execute(
+                """
+                UPDATE tool_borrows
+                SET status='Returned', return_date=%s
+                WHERE borrow_id=%s
+                """,
+                (return_date, borrow_id)
+            )
+            cursor.execute(
+                "UPDATE tools SET available_quantity = %s WHERE tool_id = %s",
+                (new_available, borrow["tool_id"])
+            )
+
+        print("Returned:", borrow["tool_name"], "x", borrow["quantity"])
+        print("Available now:", new_available)
+    except ExitRequested:
+        print("Operation cancelled.")
     helpers.pause()
 
 
